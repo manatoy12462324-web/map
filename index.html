@@ -152,6 +152,31 @@
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
+        // ルート計算完了
+        routingControl.on('routesfound', function(e) {
+          const routes = e.routes;
+          const summary = routes[0].summary;
+
+          const distanceKm = (summary.totalDistance / 1000).toFixed(1);
+          const timeMin = Math.round(summary.totalTime / 60);
+
+          document.getElementById('info').innerHTML = `
+            🚗 ルート案内中<br>
+            距離: ${distanceKm} km<br>
+            所要時間: 約${timeMin}分
+          `;
+
+          if (voiceEnabled) {
+            speak(`ルートを設定しました。距離${distanceKm}キロ、約${timeMin}分です`);
+          }
+        });
+
+        // ルート失敗
+        routingControl.on('routingerror', function(err) {
+          console.error(err);
+          alert('ルートを取得できませんでした');
+        });
+
     // 現在地マーカー
     userMarker = L.marker([currentLat, currentLng])
       .addTo(map)
@@ -265,6 +290,10 @@
 
     // ナビ開始
     async function startNavigation() {
+      if (!navigator.onLine) {
+        alert('インターネット接続が必要です');
+        return;
+      }
       const destination = document.getElementById('destination').value;
 
       if (!destination) {
@@ -301,6 +330,9 @@
         // ルート表示（できるだけ大通り優先）
         // OSRMの車ルートを使用
         routingControl = L.Routing.control({
+          router: new L.Routing.OSRMv1({
+            serviceUrl: 'https://router.project-osrm.org/route/v1'
+          }),
           waypoints: [
             L.latLng(currentLat, currentLng),
             L.latLng(destLat, destLng)
