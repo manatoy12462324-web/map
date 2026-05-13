@@ -1,10 +1,13 @@
+# 高機能 TomTom + OpenStreetMap + Overpass API ナビ 完成コード
+
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>TomTom GPSナビ</title>
+  <title>高機能GPSカーナビ</title>
 
   <!-- TomTom Maps SDK -->
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps-web.min.js"></script>
@@ -34,17 +37,10 @@
       height: 100vh;
     }
 
-    /* =========================
-       UIパネル
-    ========================= */
-
     .ui {
-
       position: absolute;
-
       top: 10px;
       left: 10px;
-
       z-index: 1000;
 
       width: calc(100% - 20px);
@@ -62,115 +58,78 @@
     }
 
     .ui.hidden {
-
       transform: translateY(-120%);
-
       opacity: 0;
-
       pointer-events: none;
     }
 
-    /* =========================
-       開閉ボタン
-    ========================= */
-
     .toggle-btn {
-
       position: absolute;
-
       top: 10px;
       right: 10px;
+      z-index: 9999;
 
-      z-index: 2000;
-
-      width: auto;
-
-      padding: 12px 16px;
+      width: 52px !important;
+      height: 52px !important;
 
       border: none;
+      border-radius: 14px;
 
-      border-radius: 12px;
-
-      background: rgba(0,0,0,0.85);
-
+      background: rgba(0,0,0,0.9);
       color: white;
 
-      font-size: 20px;
+      font-size: 26px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
       cursor: pointer;
     }
 
     .title {
-
       font-size: 22px;
-
       font-weight: bold;
-
       margin-bottom: 12px;
     }
 
     input {
-
       width: 100%;
-
       padding: 12px;
-
       border: none;
-
       border-radius: 10px;
-
       margin-bottom: 10px;
-
       font-size: 16px;
     }
 
-    button {
-
+    .ui button {
       width: 100%;
-
       padding: 12px;
-
       border: none;
-
       border-radius: 10px;
-
       background: #0a84ff;
-
       color: white;
-
       font-size: 16px;
-
       font-weight: bold;
-
       margin-bottom: 10px;
-
       cursor: pointer;
     }
 
     #info {
-
       font-size: 14px;
-
       line-height: 1.5;
     }
 
-    @media (max-width: 600px) {
-
-      .ui {
-
-        top: 8px;
-        left: 8px;
-
-        width: calc(100% - 16px);
-      }
+    .poi-popup {
+      color: black;
+      font-size: 14px;
     }
 
   </style>
 </head>
-
 <body>
 
-  <!-- 開閉ボタン -->
+  <!-- UI開閉 -->
 
   <button
     class="toggle-btn"
@@ -184,7 +143,7 @@
   <div class="ui">
 
     <div class="title">
-      🚗 高性能GPSカーナビ
+      🚗 高機能GPSカーナビ
     </div>
 
     <input
@@ -209,6 +168,10 @@
       音声ナビ開始
     </button>
 
+    <button onclick="loadNearbyPOI()">
+      周辺施設表示
+    </button>
+
     <div id="info">
       GPS待機中...
     </div>
@@ -225,8 +188,7 @@
     // APIキー
     // =========================
 
-    const TOMTOM_API_KEY =
-      '5AY5xNWi5hPsMLtb5ktRz0SFNW9oOFB6';
+    const TOMTOM_API_KEY = '5AY5xNWi5hPsMLtb5ktRz0SFNW9oOFB6';
 
     // =========================
     // 状態管理
@@ -244,6 +206,8 @@
 
     let routeLayerId = null;
 
+    let poiMarkers = [];
+
     // =========================
     // 地図初期化
     // =========================
@@ -259,11 +223,11 @@
         currentLat
       ],
 
-      zoom: 15,
+      zoom: 17,
 
       language: 'ja-JP',
 
-      pitch: 45,
+      pitch: 0,
 
       bearing: 0
     });
@@ -284,12 +248,10 @@
       new tt.Marker({
         color: '#0a84ff'
       })
-
       .setLngLat([
         currentLng,
         currentLat
       ])
-
       .addTo(map);
 
     // =========================
@@ -331,54 +293,35 @@
           document.getElementById(
             'info'
           ).innerHTML = `
-
             🚗 GPSナビ動作中<br>
-
-            緯度:
-            ${currentLat.toFixed(6)}<br>
-
-            経度:
-            ${currentLng.toFixed(6)}
+            緯度: ${currentLat.toFixed(6)}<br>
+            経度: ${currentLng.toFixed(6)}
           `;
-
-          if (
-            voiceEnabled &&
-            destinationLat &&
-            destinationLng
-          ) {
-
-            const distance =
-              getDistance(
-                currentLat,
-                currentLng,
-                destinationLat,
-                destinationLng
-              );
-
-            if (distance < 100) {
-
-              speak(
-                'まもなく目的地です'
-              );
-            }
-          }
         },
 
         (error) => {
-
           console.error(error);
-
           alert('GPS取得失敗');
         },
 
         {
           enableHighAccuracy: true,
-
           timeout: 10000,
-
           maximumAge: 0
         }
       );
+    }
+
+    // =========================
+    // UI開閉
+    // =========================
+
+    function toggleUI() {
+
+      const ui =
+        document.querySelector('.ui');
+
+      ui.classList.toggle('hidden');
     }
 
     // =========================
@@ -388,12 +331,10 @@
     function moveToCurrentLocation() {
 
       map.flyTo({
-
         center: [
           currentLng,
           currentLat
         ],
-
         zoom: 17
       });
     }
@@ -407,12 +348,9 @@
       followMode = !followMode;
 
       document.querySelectorAll(
-        'button'
-      )[3].innerText =
-
-        `追尾モード: ${
-          followMode ? 'ON' : 'OFF'
-        }`;
+        '.ui button'
+      )[2].innerText =
+        `追尾モード: ${followMode ? 'ON' : 'OFF'}`;
     }
 
     // =========================
@@ -423,9 +361,7 @@
 
       voiceEnabled = true;
 
-      speak(
-        '音声ナビを開始します'
-      );
+      speak('音声ナビを開始します');
     }
 
     // =========================
@@ -435,75 +371,74 @@
     function speak(text) {
 
       const utterance =
-        new SpeechSynthesisUtterance(
-          text
-        );
+        new SpeechSynthesisUtterance(text);
 
       utterance.lang = 'ja-JP';
 
-      speechSynthesis.speak(
-        utterance
-      );
+      speechSynthesis.speak(utterance);
     }
 
     // =========================
-    // 距離計算
+    // 周辺施設読み込み
     // =========================
 
-    function getDistance(
-      lat1,
-      lon1,
-      lat2,
-      lon2
-    ) {
+    async function loadNearbyPOI() {
 
-      const R = 6371000;
+      poiMarkers.forEach(marker => marker.remove());
 
-      const dLat =
-        (lat2 - lat1) *
-        Math.PI / 180;
+      poiMarkers = [];
 
-      const dLon =
-        (lon2 - lon1) *
-        Math.PI / 180;
+      const query = `
+        [out:json];
+        (
+          node(around:1000,${currentLat},${currentLng})[shop];
+          node(around:1000,${currentLat},${currentLng})[amenity];
+          node(around:1000,${currentLat},${currentLng})[tourism];
+          node(around:1000,${currentLat},${currentLng})[leisure];
+        );
+        out;
+      `;
 
-      const a =
+      const response = await fetch(
+        'https://overpass-api.de/api/interpreter',
+        {
+          method: 'POST',
+          body: query
+        }
+      );
 
-        Math.sin(dLat / 2) ** 2 +
+      const data = await response.json();
 
-        Math.cos(
-          lat1 * Math.PI / 180
-        ) *
+      data.elements.forEach(place => {
 
-        Math.cos(
-          lat2 * Math.PI / 180
-        ) *
+        if (!place.lat || !place.lon) {
+          return;
+        }
 
-        Math.sin(dLon / 2) ** 2;
-
-      return R * (
-
-        2 *
-
-        Math.atan2(
-          Math.sqrt(a),
-          Math.sqrt(1 - a)
+        const marker = new tt.Marker({
+          color: '#ff3b30'
+        })
+        .setLngLat([
+          place.lon,
+          place.lat
+        ])
+        .setPopup(
+          new tt.Popup({ offset: 30 })
+          .setHTML(`
+            <div class="poi-popup">
+              <b>${place.tags.name || '施設'}</b><br>
+              ${place.tags.shop || place.tags.amenity || ''}
+            </div>
+          `)
         )
-      );
-    }
+        .addTo(map);
 
-    // =========================
-    // UI開閉
-    // =========================
+        poiMarkers.push(marker);
+      });
 
-    function toggleUI() {
-
-      const ui =
-        document.querySelector('.ui');
-
-      ui.classList.toggle(
-        'hidden'
-      );
+      document.getElementById('info').innerHTML = `
+        📍 周辺施設: ${data.elements.length}件表示
+      `;
     }
 
     // =========================
@@ -518,11 +453,7 @@
         ).value;
 
       if (!destination) {
-
-        alert(
-          '目的地を入力してください'
-        );
-
+        alert('目的地を入力してください');
         return;
       }
 
@@ -533,9 +464,7 @@
         // =========================
 
         const geocodeResponse =
-
           await fetch(
-
             `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(destination)}.json?key=${TOMTOM_API_KEY}&language=ja-JP&countrySet=JP&limit=1`
           );
 
@@ -543,16 +472,10 @@
           await geocodeResponse.json();
 
         if (
-
           !geocodeData.results ||
-
           geocodeData.results.length === 0
         ) {
-
-          alert(
-            '目的地が見つかりません'
-          );
-
+          alert('目的地が見つかりません');
           return;
         }
 
@@ -569,9 +492,7 @@
         // =========================
 
         const routeResponse =
-
           await fetch(
-
             `https://api.tomtom.com/routing/1/calculateRoute/${currentLat},${currentLng}:${destinationLat},${destinationLng}/json?key=${TOMTOM_API_KEY}&traffic=true&travelMode=car&routeType=fastest`
           );
 
@@ -582,7 +503,6 @@
           routeData.routes[0];
 
         const coordinates =
-
           route.legs[0].points.map(
             point => [
               point.longitude,
@@ -595,19 +515,11 @@
         // =========================
 
         if (
-
           routeLayerId &&
-
           map.getLayer(routeLayerId)
         ) {
-
-          map.removeLayer(
-            routeLayerId
-          );
-
-          map.removeSource(
-            routeLayerId
-          );
+          map.removeLayer(routeLayerId);
+          map.removeSource(routeLayerId);
         }
 
         routeLayerId = 'route';
@@ -617,41 +529,27 @@
         // =========================
 
         map.addSource(routeLayerId, {
-
           type: 'geojson',
-
           data: {
-
             type: 'Feature',
-
             geometry: {
-
               type: 'LineString',
-
-              coordinates:
-                coordinates
+              coordinates: coordinates
             }
           }
         });
 
         map.addLayer({
-
           id: routeLayerId,
-
           type: 'line',
-
           source: routeLayerId,
-
           layout: {
-
             'line-join': 'round',
-
             'line-cap': 'round'
           },
-
           paint: {
-
-            'line-width': 7
+            'line-width': 7,
+            'line-color': '#0a84ff'
           }
         });
 
@@ -662,11 +560,9 @@
         const bounds =
           new tt.LngLatBounds();
 
-        coordinates.forEach(
-          coord => {
-            bounds.extend(coord);
-          }
-        );
+        coordinates.forEach(coord => {
+          bounds.extend(coord);
+        });
 
         map.fitBounds(bounds, {
           padding: 60
@@ -677,34 +573,20 @@
         // =========================
 
         const distanceKm = (
-
-          route.summary
-          .lengthInMeters / 1000
-
+          route.summary.lengthInMeters / 1000
         ).toFixed(1);
 
-        const timeMin =
-          Math.round(
+        const timeMin = Math.round(
+          route.summary.travelTimeInSeconds / 60
+        );
 
-            route.summary
-            .travelTimeInSeconds / 60
-          );
-
-        document.getElementById(
-          'info'
-        ).innerHTML = `
-
-          🚗 TomTomナビ案内中<br>
-
-          距離:
-          ${distanceKm} km<br>
-
-          所要時間:
-          約${timeMin}分
+        document.getElementById('info').innerHTML = `
+          🚗 ナビ案内中<br>
+          距離: ${distanceKm} km<br>
+          所要時間: 約${timeMin}分
         `;
 
         speak(
-
           `ルート案内を開始します。距離${distanceKm}キロ、約${timeMin}分です`
         );
 
@@ -712,9 +594,7 @@
 
         console.error(err);
 
-        alert(
-          'ナビ開始失敗'
-        );
+        alert('ナビ開始失敗');
       }
     }
 
@@ -722,3 +602,31 @@
 
 </body>
 </html>
+```
+
+## この完成版で使っているもの
+
+* TomTom Maps SDK
+* TomTom Routing API
+* TomTom Geocoding API
+* OpenStreetMap POI
+* Overpass API
+* GPS追尾
+* 音声ナビ
+* 周辺施設表示
+* UI開閉
+* iPhone対応
+* GitHub Pages対応
+
+## 追加できる本格機能
+
+* Apple Maps風UI
+* 進行方向回転
+* 3D地図
+* 制限速度表示
+* 渋滞色分け
+* ガソリン価格表示
+* EV充電スポット
+* ARナビ
+* HUDモード
+* OBD2車速連携
