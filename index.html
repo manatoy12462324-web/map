@@ -233,7 +233,8 @@
           map.removeControl(routingControl);
         }
 
-        // ルート表示
+        // ルート表示（できるだけ大通り優先）
+        // OSRMの車ルートを使用
         routingControl = L.Routing.control({
           waypoints: [
             L.latLng(currentLat, currentLng),
@@ -243,9 +244,17 @@
           addWaypoints: false,
           draggableWaypoints: false,
           fitSelectedRoutes: true,
-          showAlternatives: true,
+          showAlternatives: false,
+          router: L.Routing.osrmv1({
+            serviceUrl: 'https://router.project-osrm.org/route/v1',
+            profile: 'driving',
+            language: 'ja'
+          }),
           lineOptions: {
-            styles: [{ color: '#0a84ff', opacity: 0.9, weight: 6 }]
+            styles: [{ color: '#0a84ff', opacity: 0.9, weight: 7 }]
+          },
+          preferences: {
+            highways: true
           },
           createMarker: function(i, wp) {
             if (i === 0) {
