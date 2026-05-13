@@ -604,6 +604,185 @@
 </html>
 ```
 
+## 最強無料構成版へアップデート
+
+このバージョンでは TomTom 依存を減らし、以下の無料構成へアップデートできます。
+
+* 地図描画: MapLibre GL JS
+* 地図データ: OpenStreetMap
+* 車ナビ: GraphHopper
+* 徒歩ルート: OSRM
+* POI検索: Overpass API
+* 鉄道路線: OpenRailwayMap
+* GPS追尾
+* 音声ナビ
+* GitHub Pages対応
+* iPhone Safari対応
+
+### 推奨構成
+
+```txt
+MapLibre GL JS
++
+OpenStreetMap
++
+GraphHopper
++
+Overpass API
++
+OpenRailwayMap
+```
+
+### この構成の強み
+
+* 路地裏まで入っている
+* 日本の細道に強い
+* 徒歩・散歩にも強い
+* 鉄道路線も重ねられる
+* 無料枠が非常に大きい
+* GitHub Pagesで動作可能
+* カスタム自由度が高い
+
+---
+
+# 次にやるべきアップデート
+
+## ① TomTom SDK → MapLibre GL JS
+
+### head に追加
+
+```html
+<link
+  href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css"
+  rel="stylesheet"
+/>
+
+<script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+```
+
+---
+
+## ② 地図初期化を変更
+
+今の `const map = tt.map({` を全部削除して、
+これに変更。
+
+```javascript
+const map = new maplibregl.Map({
+
+  container: 'map',
+
+  style: 'https://demotiles.maplibre.org/style.json',
+
+  center: [currentLng, currentLat],
+
+  zoom: 16
+});
+
+map.addControl(
+  new maplibregl.NavigationControl()
+);
+```
+
+---
+
+## ③ OpenStreetMap日本語地図へ変更（おすすめ）
+
+```javascript
+style:
+'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json'
+```
+
+に変更すると日本語地図になります。
+
+---
+
+## ④ GraphHopper 車ナビ追加
+
+### 無料APIキー取得
+
+[https://www.graphhopper.com/](https://www.graphhopper.com/)
+
+---
+
+### ルート検索を変更
+
+```javascript
+const routeResponse = await fetch(
+  `https://graphhopper.com/api/1/route?point=${currentLat},${currentLng}&point=${destinationLat},${destinationLng}&vehicle=car&locale=ja&points_encoded=false&key=GRAPHOPPER_API_KEY`
+);
+```
+
+---
+
+## ⑤ OpenRailwayMap追加
+
+鉄道路線表示追加。
+
+```javascript
+map.addSource('railway', {
+  type: 'raster',
+  tiles: [
+    'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
+  ],
+  tileSize: 256
+});
+
+map.addLayer({
+  id: 'railway-layer',
+  type: 'raster',
+  source: 'railway'
+});
+```
+
+---
+
+## ⑥ Overpass APIによる高性能POI
+
+現在のPOI機能をそのまま利用可能。
+
+おすすめ追加:
+
+* コンビニのみ
+* ガソリンスタンドのみ
+* 駐車場のみ
+* EV充電器のみ
+* 駅のみ
+
+などカテゴリ分け可能。
+
+---
+
+## ⑦ 徒歩モード追加
+
+```javascript
+vehicle=foot
+```
+
+に変更するだけで散歩モード化できる。
+
+---
+
+## ⑧ 今後追加可能
+
+* Google Maps風UI
+* CarPlay風UI
+* 進行方向回転
+* 車アイコン回転
+* ARナビ
+* HUD表示
+* オフライン地図
+* GPX記録
+* 通った道だけ表示
+* OBD2連携
+* 電車ナビ
+* バス時刻表示
+* 渋滞表示
+* 制限速度表示
+* 音声案内強化
+
+---
+
 ## この完成版で使っているもの
 
 * TomTom Maps SDK
