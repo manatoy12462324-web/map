@@ -134,6 +134,7 @@
   <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps-web.min.js"></script>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/plugins/ZoomControls/1.0.2/ZoomControls-web.js"></script>
   <link
     rel="stylesheet"
     href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css"
@@ -141,6 +142,11 @@
 
   <script>
     const TOMTOM_API_KEY = '5AY5xNWi5hPsMLtb5ktRz0SFNW9oOFB6';
+
+    // APIキー未設定チェック
+    if (TOMTOM_API_KEY === 'YOUR_TOMTOM_API_KEY') {
+      alert('TomTom APIキーを設定してください');
+    }
 
     let currentLat = 35.0116;
     let currentLng = 135.7681;
@@ -159,7 +165,7 @@
       language: 'ja-JP',
       pitch: 45,
       bearing: 0,
-      style: 'https://api.tomtom.com/style/1/style/22.2.1-*?map=basic_main&poi=poi_main'
+      style: 'tomtom://vector/1/basic-main'
     });
 
     map.addControl(new tt.NavigationControl());
