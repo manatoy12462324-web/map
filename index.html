@@ -107,7 +107,7 @@
 </head>
 <body>
   <div class="ui">
-    <div class="title">📍 GPSナビMAP</div>
+    <div class="title">🚗 高機能 GPSカーナビ</div>
 
     <input
       type="text"
@@ -117,6 +117,8 @@
 
     <button onclick="startNavigation()">ナビ開始</button>
     <button onclick="moveToCurrentLocation()">現在地へ移動</button>
+    <button onclick="toggleFollowMode()">追尾モード: ON</button>
+    <button onclick="startVoiceNavigation()">音声ナビ開始</button>
 
     <div id="info">
       GPS待機中...
@@ -135,6 +137,10 @@
     let map;
     let userMarker;
     let routingControl;
+    let followMode = true;
+    let voiceEnabled = false;
+    let destinationLat = null;
+    let destinationLng = null;
     let currentLat = 35.0116;
     let currentLng = 135.7681;
 
@@ -161,7 +167,23 @@
 
           userMarker.setLatLng([currentLat, currentLng]);
 
-          map.setView([currentLat, currentLng]);
+          if (followMode) {
+            map.setView([currentLat, currentLng]);
+          }
+
+          // 音声ナビ
+          if (voiceEnabled && destinationLat && destinationLng) {
+            const distance = getDistance(
+              currentLat,
+              currentLng,
+              destinationLat,
+              destinationLng
+            );
+
+            if (distance < 100) {
+              speak('まもなく目的地です');
+            }
+          }
 
           document.getElementById('info').innerHTML = `
             緯度: ${currentLat.toFixed(6)}<br>
@@ -198,6 +220,44 @@
       alert('このブラウザはGPSに対応していません');
     }
 
+    // 追尾モード切替
+    function toggleFollowMode() {
+      followMode = !followMode;
+
+      document.querySelectorAll('button')[1].innerText =
+        `追尾モード: ${followMode ? 'ON' : 'OFF'}`;
+    }
+
+    // 音声ナビ開始
+    function startVoiceNavigation() {
+      voiceEnabled = true;
+      speak('音声ナビを開始します');
+    }
+
+    // 音声読み上げ
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ja-JP';
+      speechSynthesis.speak(utterance);
+    }
+
+    // 2点間距離計算
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
     // 現在地へ移動
     function moveToCurrentLocation() {
       map.setView([currentLat, currentLng], 17);
@@ -227,6 +287,11 @@
 
         const destLat = parseFloat(data[0].lat);
         const destLng = parseFloat(data[0].lon);
+
+        destinationLat = destLat;
+        destinationLng = destLng;
+
+        speak('ルート案内を開始します');
 
         // 既存ルート削除
         if (routingControl) {
