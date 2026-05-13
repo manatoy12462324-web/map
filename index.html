@@ -163,12 +163,22 @@
       center: [currentLng, currentLat],
       zoom: 15,
       language: 'ja-JP',
+      locale: 'ja-JP',
       pitch: 45,
       bearing: 0,
       style: 'tomtom://vector/1/basic-main'
     });
 
     map.addControl(new tt.NavigationControl());
+
+    // 日本語地名表示改善
+    map.on('load', () => {
+      map.setLayoutProperty(
+        'Road labels',
+        'text-field',
+        ['get', 'name_ja']
+      );
+    });
     map.addControl(new tt.FullscreenControl());
 
     // 現在地マーカー
@@ -282,7 +292,7 @@
       try {
         // TomTom検索API
         const geocodeResponse = await fetch(
-          `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(destination)}.json?key=${TOMTOM_API_KEY}`
+          `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(destination)}.json?key=${TOMTOM_API_KEY}&language=ja-JP&countrySet=JP&limit=1`
         );
 
         const geocodeData = await geocodeResponse.json();
@@ -294,6 +304,14 @@
 
         destinationLat = geocodeData.results[0].position.lat;
         destinationLng = geocodeData.results[0].position.lon;
+
+        // 検索結果住所表示
+        const addressLabel = geocodeData.results[0].address.freeformAddress;
+
+        document.getElementById('info').innerHTML = `
+          📍 目的地: ${addressLabel}<br>
+          ルートを計算中...
+        `;
 
         // ルート検索
         const routeResponse = await fetch(
