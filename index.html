@@ -1,811 +1,768 @@
-# 高機能 TomTom + OpenStreetMap + Overpass API ナビ 完成コード
-
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8" />
 
-  <title>高機能GPSカーナビ</title>
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0"
+/>
 
-  <!-- TomTom Maps SDK -->
-  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps-web.min.js"></script>
+<title>無料OSM GPSナビ</title>
 
-  <link
-    rel="stylesheet"
-    href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.25.0/maps/maps.css"
-  />
+<!-- MapLibre GL JS -->
 
-  <style>
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: sans-serif;
-    }
-
-    body {
-      overflow: hidden;
-      background: #111;
-      color: white;
-    }
-
-    #map {
-      width: 100vw;
-      height: 100vh;
-    }
-
-    .ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-
-      width: calc(100% - 20px);
-      max-width: 420px;
-
-      background: rgba(0,0,0,0.85);
-
-      padding: 14px;
-
-      border-radius: 16px;
-
-      backdrop-filter: blur(10px);
-
-      transition: 0.3s;
-    }
-
-    .ui.hidden {
-      transform: translateY(-120%);
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .toggle-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 9999;
-
-      width: 52px !important;
-      height: 52px !important;
-
-      border: none;
-      border-radius: 14px;
-
-      background: rgba(0,0,0,0.9);
-      color: white;
-
-      font-size: 26px;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      cursor: pointer;
-    }
-
-    .title {
-      font-size: 22px;
-      font-weight: bold;
-      margin-bottom: 12px;
-    }
-
-    input {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-
-    .ui button {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      background: #0a84ff;
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 10px;
-      cursor: pointer;
-    }
-
-    #info {
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    .poi-popup {
-      color: black;
-      font-size: 14px;
-    }
-
-  </style>
-</head>
-<body>
-
-  <!-- UI開閉 -->
-
-  <button
-    class="toggle-btn"
-    onclick="toggleUI()"
-  >
-    ☰
-  </button>
-
-  <!-- UI -->
-
-  <div class="ui">
-
-    <div class="title">
-      🚗 高機能GPSカーナビ
-    </div>
-
-    <input
-      type="text"
-      id="destination"
-      placeholder="目的地を入力（例：京都駅）"
-    />
-
-    <button onclick="startNavigation()">
-      ナビ開始
-    </button>
-
-    <button onclick="moveToCurrentLocation()">
-      現在地へ移動
-    </button>
-
-    <button onclick="toggleFollowMode()">
-      追尾モード: ON
-    </button>
-
-    <button onclick="startVoiceNavigation()">
-      音声ナビ開始
-    </button>
-
-    <button onclick="loadNearbyPOI()">
-      周辺施設表示
-    </button>
-
-    <div id="info">
-      GPS待機中...
-    </div>
-
-  </div>
-
-  <!-- 地図 -->
-
-  <div id="map"></div>
-
-  <script>
-
-    // =========================
-    // APIキー
-    // =========================
-
-    const TOMTOM_API_KEY = '5AY5xNWi5hPsMLtb5ktRz0SFNW9oOFB6';
-
-    // =========================
-    // 状態管理
-    // =========================
-
-    let currentLat = 35.0116;
-    let currentLng = 135.7681;
-
-    let followMode = true;
-
-    let voiceEnabled = false;
-
-    let destinationLat = null;
-    let destinationLng = null;
-
-    let routeLayerId = null;
-
-    let poiMarkers = [];
-
-    // =========================
-    // 地図初期化
-    // =========================
-
-    const map = tt.map({
-
-      key: TOMTOM_API_KEY,
-
-      container: 'map',
-
-      center: [
-        currentLng,
-        currentLat
-      ],
-
-      zoom: 17,
-
-      language: 'ja-JP',
-
-      pitch: 0,
-
-      bearing: 0
-    });
-
-    map.addControl(
-      new tt.NavigationControl()
-    );
-
-    map.addControl(
-      new tt.FullscreenControl()
-    );
-
-    // =========================
-    // 現在地マーカー
-    // =========================
-
-    const userMarker =
-      new tt.Marker({
-        color: '#0a84ff'
-      })
-      .setLngLat([
-        currentLng,
-        currentLat
-      ])
-      .addTo(map);
-
-    // =========================
-    // GPS取得
-    // =========================
-
-    if (navigator.geolocation) {
-
-      navigator.geolocation.watchPosition(
-
-        (position) => {
-
-          currentLat =
-            position.coords.latitude;
-
-          currentLng =
-            position.coords.longitude;
-
-          userMarker.setLngLat([
-            currentLng,
-            currentLat
-          ]);
-
-          if (followMode) {
-
-            map.flyTo({
-
-              center: [
-                currentLng,
-                currentLat
-              ],
-
-              zoom: 17,
-
-              speed: 1.2
-            });
-          }
-
-          document.getElementById(
-            'info'
-          ).innerHTML = `
-            🚗 GPSナビ動作中<br>
-            緯度: ${currentLat.toFixed(6)}<br>
-            経度: ${currentLng.toFixed(6)}
-          `;
-        },
-
-        (error) => {
-          console.error(error);
-          alert('GPS取得失敗');
-        },
-
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    }
-
-    // =========================
-    // UI開閉
-    // =========================
-
-    function toggleUI() {
-
-      const ui =
-        document.querySelector('.ui');
-
-      ui.classList.toggle('hidden');
-    }
-
-    // =========================
-    // 現在地へ移動
-    // =========================
-
-    function moveToCurrentLocation() {
-
-      map.flyTo({
-        center: [
-          currentLng,
-          currentLat
-        ],
-        zoom: 17
-      });
-    }
-
-    // =========================
-    // 追尾モード
-    // =========================
-
-    function toggleFollowMode() {
-
-      followMode = !followMode;
-
-      document.querySelectorAll(
-        '.ui button'
-      )[2].innerText =
-        `追尾モード: ${followMode ? 'ON' : 'OFF'}`;
-    }
-
-    // =========================
-    // 音声ナビ
-    // =========================
-
-    function startVoiceNavigation() {
-
-      voiceEnabled = true;
-
-      speak('音声ナビを開始します');
-    }
-
-    // =========================
-    // 音声読み上げ
-    // =========================
-
-    function speak(text) {
-
-      const utterance =
-        new SpeechSynthesisUtterance(text);
-
-      utterance.lang = 'ja-JP';
-
-      speechSynthesis.speak(utterance);
-    }
-
-    // =========================
-    // 周辺施設読み込み
-    // =========================
-
-    async function loadNearbyPOI() {
-
-      poiMarkers.forEach(marker => marker.remove());
-
-      poiMarkers = [];
-
-      const query = `
-        [out:json];
-        (
-          node(around:1000,${currentLat},${currentLng})[shop];
-          node(around:1000,${currentLat},${currentLng})[amenity];
-          node(around:1000,${currentLat},${currentLng})[tourism];
-          node(around:1000,${currentLat},${currentLng})[leisure];
-        );
-        out;
-      `;
-
-      const response = await fetch(
-        'https://overpass-api.de/api/interpreter',
-        {
-          method: 'POST',
-          body: query
-        }
-      );
-
-      const data = await response.json();
-
-      data.elements.forEach(place => {
-
-        if (!place.lat || !place.lon) {
-          return;
-        }
-
-        const marker = new tt.Marker({
-          color: '#ff3b30'
-        })
-        .setLngLat([
-          place.lon,
-          place.lat
-        ])
-        .setPopup(
-          new tt.Popup({ offset: 30 })
-          .setHTML(`
-            <div class="poi-popup">
-              <b>${place.tags.name || '施設'}</b><br>
-              ${place.tags.shop || place.tags.amenity || ''}
-            </div>
-          `)
-        )
-        .addTo(map);
-
-        poiMarkers.push(marker);
-      });
-
-      document.getElementById('info').innerHTML = `
-        📍 周辺施設: ${data.elements.length}件表示
-      `;
-    }
-
-    // =========================
-    // ナビ開始
-    // =========================
-
-    async function startNavigation() {
-
-      const destination =
-        document.getElementById(
-          'destination'
-        ).value;
-
-      if (!destination) {
-        alert('目的地を入力してください');
-        return;
-      }
-
-      try {
-
-        // =========================
-        // 住所検索
-        // =========================
-
-        const geocodeResponse =
-          await fetch(
-            `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(destination)}.json?key=${TOMTOM_API_KEY}&language=ja-JP&countrySet=JP&limit=1`
-          );
-
-        const geocodeData =
-          await geocodeResponse.json();
-
-        if (
-          !geocodeData.results ||
-          geocodeData.results.length === 0
-        ) {
-          alert('目的地が見つかりません');
-          return;
-        }
-
-        destinationLat =
-          geocodeData.results[0]
-          .position.lat;
-
-        destinationLng =
-          geocodeData.results[0]
-          .position.lon;
-
-        // =========================
-        // ルート検索
-        // =========================
-
-        const routeResponse =
-          await fetch(
-            `https://api.tomtom.com/routing/1/calculateRoute/${currentLat},${currentLng}:${destinationLat},${destinationLng}/json?key=${TOMTOM_API_KEY}&traffic=true&travelMode=car&routeType=fastest`
-          );
-
-        const routeData =
-          await routeResponse.json();
-
-        const route =
-          routeData.routes[0];
-
-        const coordinates =
-          route.legs[0].points.map(
-            point => [
-              point.longitude,
-              point.latitude
-            ]
-          );
-
-        // =========================
-        // 既存ルート削除
-        // =========================
-
-        if (
-          routeLayerId &&
-          map.getLayer(routeLayerId)
-        ) {
-          map.removeLayer(routeLayerId);
-          map.removeSource(routeLayerId);
-        }
-
-        routeLayerId = 'route';
-
-        // =========================
-        // ルート描画
-        // =========================
-
-        map.addSource(routeLayerId, {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: coordinates
-            }
-          }
-        });
-
-        map.addLayer({
-          id: routeLayerId,
-          type: 'line',
-          source: routeLayerId,
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-width': 7,
-            'line-color': '#0a84ff'
-          }
-        });
-
-        // =========================
-        // 地図フィット
-        // =========================
-
-        const bounds =
-          new tt.LngLatBounds();
-
-        coordinates.forEach(coord => {
-          bounds.extend(coord);
-        });
-
-        map.fitBounds(bounds, {
-          padding: 60
-        });
-
-        // =========================
-        // 情報表示
-        // =========================
-
-        const distanceKm = (
-          route.summary.lengthInMeters / 1000
-        ).toFixed(1);
-
-        const timeMin = Math.round(
-          route.summary.travelTimeInSeconds / 60
-        );
-
-        document.getElementById('info').innerHTML = `
-          🚗 ナビ案内中<br>
-          距離: ${distanceKm} km<br>
-          所要時間: 約${timeMin}分
-        `;
-
-        speak(
-          `ルート案内を開始します。距離${distanceKm}キロ、約${timeMin}分です`
-        );
-
-      } catch (err) {
-
-        console.error(err);
-
-        alert('ナビ開始失敗');
-      }
-    }
-
-  </script>
-
-</body>
-</html>
-```
-
-## 最強無料構成版へアップデート
-
-このバージョンでは TomTom 依存を減らし、以下の無料構成へアップデートできます。
-
-* 地図描画: MapLibre GL JS
-* 地図データ: OpenStreetMap
-* 車ナビ: GraphHopper
-* 徒歩ルート: OSRM
-* POI検索: Overpass API
-* 鉄道路線: OpenRailwayMap
-* GPS追尾
-* 音声ナビ
-* GitHub Pages対応
-* iPhone Safari対応
-
-### 推奨構成
-
-```txt
-MapLibre GL JS
-+
-OpenStreetMap
-+
-GraphHopper
-+
-Overpass API
-+
-OpenRailwayMap
-```
-
-### この構成の強み
-
-* 路地裏まで入っている
-* 日本の細道に強い
-* 徒歩・散歩にも強い
-* 鉄道路線も重ねられる
-* 無料枠が非常に大きい
-* GitHub Pagesで動作可能
-* カスタム自由度が高い
-
----
-
-# 次にやるべきアップデート
-
-## ① TomTom SDK → MapLibre GL JS
-
-### head に追加
-
-```html
 <link
   href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css"
   rel="stylesheet"
 />
 
 <script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
-```
 
----
+<style>
 
-## ② 地図初期化を変更
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:sans-serif;
+}
 
-今の `const map = tt.map({` を全部削除して、
-これに変更。
+body{
+  overflow:hidden;
+  background:#111;
+  color:white;
+}
 
-```javascript
+#map{
+  width:100vw;
+  height:100vh;
+}
+
+/* =======================
+UI
+======================= */
+
+.ui{
+
+  position:absolute;
+
+  top:10px;
+  left:10px;
+
+  z-index:1000;
+
+  width:calc(100% - 20px);
+  max-width:420px;
+
+  background:rgba(0,0,0,0.85);
+
+  padding:14px;
+
+  border-radius:18px;
+
+  backdrop-filter:blur(12px);
+}
+
+.title{
+  font-size:22px;
+  font-weight:bold;
+  margin-bottom:12px;
+}
+
+input,
+select,
+button{
+
+  width:100%;
+
+  margin-bottom:10px;
+
+  padding:12px;
+
+  border:none;
+
+  border-radius:10px;
+
+  font-size:16px;
+}
+
+button{
+  background:#0a84ff;
+  color:white;
+  font-weight:bold;
+}
+
+button:active{
+  opacity:0.8;
+}
+
+#info{
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* =======================
+GPSボタン
+======================= */
+
+.gps-btn{
+
+  position:absolute;
+
+  right:10px;
+  bottom:20px;
+
+  z-index:1000;
+
+  width:60px;
+  height:60px;
+
+  border-radius:50%;
+
+  border:none;
+
+  background:#0a84ff;
+
+  color:white;
+
+  font-size:26px;
+
+  font-weight:bold;
+}
+
+/* =======================
+ダークポップアップ
+======================= */
+
+.maplibregl-popup-content{
+
+  background:#222;
+  color:white;
+
+  border-radius:12px;
+}
+
+</style>
+</head>
+<body>
+
+<!-- UI -->
+
+<div class="ui">
+
+  <div class="title">
+    🚗 無料OSMナビ
+  </div>
+
+  <input
+    type="text"
+    id="destination"
+    placeholder="目的地を入力"
+  />
+
+  <select id="mode">
+
+    <option value="driving">
+      車
+    </option>
+
+    <option value="walking">
+      徒歩
+    </option>
+
+  </select>
+
+  <button onclick="startNavigation()">
+    ナビ開始
+  </button>
+
+  <button onclick="toggleFollow()">
+    GPS追尾 ON/OFF
+  </button>
+
+  <button onclick="showPOI('convenience')">
+    コンビニ
+  </button>
+
+  <button onclick="showPOI('parking')">
+    駐車場
+  </button>
+
+  <button onclick="showPOI('fuel')">
+    ガソリン
+  </button>
+
+  <button onclick="showPOI('station')">
+    駅
+  </button>
+
+  <button onclick="toggleRailway()">
+    鉄道路線
+  </button>
+
+  <div id="info">
+    GPS待機中...
+  </div>
+
+</div>
+
+<!-- GPS中央移動 -->
+
+<button
+  class="gps-btn"
+  onclick="moveToCurrentLocation()"
+>
+📍
+</button>
+
+<!-- 地図 -->
+
+<div id="map"></div>
+
+<script>
+
+// =====================================
+// 状態管理
+// =====================================
+
+let currentLat = 35.0116;
+let currentLng = 135.7681;
+
+let followMode = true;
+
+let railwayVisible = false;
+
+let poiMarkers = [];
+
+// =====================================
+// 地図初期化
+// =====================================
+
 const map = new maplibregl.Map({
 
-  container: 'map',
+  container:'map',
 
-  style: 'https://demotiles.maplibre.org/style.json',
+  style:
+'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json',
 
-  center: [currentLng, currentLat],
+  center:[
+    currentLng,
+    currentLat
+  ],
 
-  zoom: 16
+  zoom:16
 });
+
+// ナビUI
 
 map.addControl(
   new maplibregl.NavigationControl()
 );
-```
 
----
+// =====================================
+// 現在地マーカー
+// =====================================
 
-## ③ OpenStreetMap日本語地図へ変更（おすすめ）
+const userMarker =
+new maplibregl.Marker({
 
-```javascript
-style:
-'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json'
-```
+  color:'#0a84ff'
 
-に変更すると日本語地図になります。
+})
 
----
+.setLngLat([
+  currentLng,
+  currentLat
+])
 
-## ④ GraphHopper 車ナビ追加
+.addTo(map);
 
-### 無料APIキー取得
+// =====================================
+// GPS
+// =====================================
 
-[https://www.graphhopper.com/](https://www.graphhopper.com/)
+if(navigator.geolocation){
 
----
+  navigator.geolocation.watchPosition(
 
-### ルート検索を変更
+    (position)=>{
 
-```javascript
-const routeResponse = await fetch(
-  `https://graphhopper.com/api/1/route?point=${currentLat},${currentLng}&point=${destinationLat},${destinationLng}&vehicle=car&locale=ja&points_encoded=false&key=GRAPHOPPER_API_KEY`
-);
-```
+      currentLat =
+        position.coords.latitude;
 
----
+      currentLng =
+        position.coords.longitude;
 
-## ⑤ OpenRailwayMap追加
+      // マーカー移動
 
-鉄道路線表示追加。
+      userMarker.setLngLat([
+        currentLng,
+        currentLat
+      ]);
 
-```javascript
-map.addSource('railway', {
-  type: 'raster',
-  tiles: [
-    'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
-  ],
-  tileSize: 256
-});
+      // GPS追尾
 
-map.addLayer({
-  id: 'railway-layer',
-  type: 'raster',
-  source: 'railway'
-});
-```
+      if(followMode){
 
----
+        map.easeTo({
 
-## ⑥ Overpass APIによる高性能POI
+          center:[
+            currentLng,
+            currentLat
+          ],
 
-現在のPOI機能をそのまま利用可能。
+          zoom:17,
 
-おすすめ追加:
+          duration:1000
+        });
+      }
 
-* コンビニのみ
-* ガソリンスタンドのみ
-* 駐車場のみ
-* EV充電器のみ
-* 駅のみ
+      // 情報表示
 
-などカテゴリ分け可能。
+      document.getElementById(
+        'info'
+      ).innerHTML = `
+        🚗 GPS動作中<br>
+        緯度:${currentLat.toFixed(6)}<br>
+        経度:${currentLng.toFixed(6)}
+      `;
+    },
 
----
+    (error)=>{
 
-## ⑦ 徒歩モード追加
+      console.error(error);
 
-```javascript
-vehicle=foot
-```
+      alert('GPS取得失敗');
+    },
 
-に変更するだけで散歩モード化できる。
+    {
 
----
+      enableHighAccuracy:true,
 
-## ⑧ 今後追加可能
+      timeout:10000,
 
-* Google Maps風UI
-* CarPlay風UI
-* 進行方向回転
-* 車アイコン回転
-* ARナビ
-* HUD表示
-* オフライン地図
-* GPX記録
-* 通った道だけ表示
-* OBD2連携
-* 電車ナビ
-* バス時刻表示
-* 渋滞表示
-* 制限速度表示
-* 音声案内強化
+      maximumAge:0
+    }
+  );
+}
 
----
+// =====================================
+// GPS追尾
+// =====================================
 
-## この完成版で使っているもの
+function toggleFollow(){
 
-* TomTom Maps SDK
-* TomTom Routing API
-* TomTom Geocoding API
-* OpenStreetMap POI
-* Overpass API
-* GPS追尾
-* 音声ナビ
-* 周辺施設表示
-* UI開閉
-* iPhone対応
-* GitHub Pages対応
+  followMode = !followMode;
 
-## 追加できる本格機能
+  alert(
+    `GPS追尾 ${
+      followMode ? 'ON':'OFF'
+    }`
+  );
+}
 
-* Apple Maps風UI
-* 進行方向回転
-* 3D地図
-* 制限速度表示
-* 渋滞色分け
-* ガソリン価格表示
-* EV充電スポット
-* ARナビ
-* HUDモード
-* OBD2車速連携
+// =====================================
+// 現在地移動
+// =====================================
+
+function moveToCurrentLocation(){
+
+  map.flyTo({
+
+    center:[
+      currentLng,
+      currentLat
+    ],
+
+    zoom:17
+  });
+}
+
+// =====================================
+// 音声
+// =====================================
+
+function speak(text){
+
+  const utterance =
+    new SpeechSynthesisUtterance(text);
+
+  utterance.lang = 'ja-JP';
+
+  speechSynthesis.speak(utterance);
+}
+
+// =====================================
+// ナビ開始
+// =====================================
+
+async function startNavigation(){
+
+  try{
+
+    const destination =
+      document.getElementById(
+        'destination'
+      ).value;
+
+    if(!destination){
+
+      alert('目的地入力');
+
+      return;
+    }
+
+    // =====================================
+    // OSM住所検索
+    // =====================================
+
+    const geoResponse =
+      await fetch(
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`
+      );
+
+    const geoData =
+      await geoResponse.json();
+
+    if(geoData.length === 0){
+
+      alert('目的地なし');
+
+      return;
+    }
+
+    const destLat =
+      geoData[0].lat;
+
+    const destLng =
+      geoData[0].lon;
+
+    // =====================================
+    // 車 or 徒歩
+    // =====================================
+
+    const mode =
+      document.getElementById(
+        'mode'
+      ).value;
+
+    // =====================================
+    // OSRMルート
+    // =====================================
+
+    const routeResponse =
+      await fetch(
+`https://router.project-osrm.org/route/v1/${mode}/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson`
+      );
+
+    const routeData =
+      await routeResponse.json();
+
+    const coordinates =
+      routeData.routes[0]
+      .geometry.coordinates;
+
+    // =====================================
+    // 既存削除
+    // =====================================
+
+    if(map.getLayer('route')){
+
+      map.removeLayer('route');
+    }
+
+    if(map.getSource('route')){
+
+      map.removeSource('route');
+    }
+
+    // =====================================
+    // ルート描画
+    // =====================================
+
+    map.addSource('route',{
+
+      type:'geojson',
+
+      data:{
+
+        type:'Feature',
+
+        geometry:{
+
+          type:'LineString',
+
+          coordinates:coordinates
+        }
+      }
+    });
+
+    map.addLayer({
+
+      id:'route',
+
+      type:'line',
+
+      source:'route',
+
+      layout:{
+
+        'line-cap':'round',
+
+        'line-join':'round'
+      },
+
+      paint:{
+
+        'line-color':'#0a84ff',
+
+        'line-width':6
+      }
+    });
+
+    // =====================================
+    // 地図フィット
+    // =====================================
+
+    const bounds =
+      new maplibregl.LngLatBounds();
+
+    coordinates.forEach(coord=>{
+
+      bounds.extend(coord);
+    });
+
+    map.fitBounds(bounds,{
+
+      padding:50
+    });
+
+    // =====================================
+    // 距離
+    // =====================================
+
+    const distance =
+      (
+        routeData.routes[0]
+        .distance / 1000
+      ).toFixed(1);
+
+    // =====================================
+    // 時間
+    // =====================================
+
+    const time =
+      Math.round(
+        routeData.routes[0]
+        .duration / 60
+      );
+
+    // =====================================
+    // 情報表示
+    // =====================================
+
+    document.getElementById(
+      'info'
+    ).innerHTML = `
+      🚗 ナビ案内中<br>
+      距離:${distance} km<br>
+      時間:${time}分
+    `;
+
+    // =====================================
+    // 音声
+    // =====================================
+
+    speak(
+      `ルート案内を開始します。距離${distance}キロ。約${time}分です`
+    );
+
+  }catch(err){
+
+    console.error(err);
+
+    alert('ナビ失敗');
+  }
+}
+
+// =====================================
+// POI表示
+// =====================================
+
+async function showPOI(type){
+
+  poiMarkers.forEach(
+    marker=>marker.remove()
+  );
+
+  poiMarkers = [];
+
+  let query = '';
+
+  // =========================
+  // コンビニ
+  // =========================
+
+  if(type === 'convenience'){
+
+    query =
+`
+[out:json];
+node
+(around:1000,${currentLat},${currentLng})
+[shop=convenience];
+out;
+`;
+  }
+
+  // =========================
+  // 駐車場
+  // =========================
+
+  if(type === 'parking'){
+
+    query =
+`
+[out:json];
+node
+(around:1000,${currentLat},${currentLng})
+[amenity=parking];
+out;
+`;
+  }
+
+  // =========================
+  // ガソリン
+  // =========================
+
+  if(type === 'fuel'){
+
+    query =
+`
+[out:json];
+node
+(around:1000,${currentLat},${currentLng})
+[amenity=fuel];
+out;
+`;
+  }
+
+  // =========================
+  // 駅
+  // =========================
+
+  if(type === 'station'){
+
+    query =
+`
+[out:json];
+node
+(around:1000,${currentLat},${currentLng})
+[railway=station];
+out;
+`;
+  }
+
+  // =========================
+  // Overpass API
+  // =========================
+
+  const response =
+    await fetch(
+      'https://overpass-api.de/api/interpreter',
+      {
+        method:'POST',
+        body:query
+      }
+    );
+
+  const data =
+    await response.json();
+
+  data.elements.forEach(place=>{
+
+    const marker =
+      new maplibregl.Marker({
+        color:'#ff3b30'
+      })
+
+      .setLngLat([
+        place.lon,
+        place.lat
+      ])
+
+      .setPopup(
+
+        new maplibregl.Popup()
+
+        .setHTML(`
+          <b>
+            ${place.tags.name || '施設'}
+          </b>
+        `)
+      )
+
+      .addTo(map);
+
+    poiMarkers.push(marker);
+  });
+
+  alert(
+    `${data.elements.length}件表示`
+  );
+}
+
+// =====================================
+// 鉄道路線
+// =====================================
+
+function toggleRailway(){
+
+  if(railwayVisible){
+
+    if(map.getLayer('railway-layer')){
+
+      map.removeLayer(
+        'railway-layer'
+      );
+    }
+
+    if(map.getSource('railway')){
+
+      map.removeSource(
+        'railway'
+      );
+    }
+
+    railwayVisible = false;
+
+    return;
+  }
+
+  map.addSource('railway',{
+
+    type:'raster',
+
+    tiles:[
+'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
+    ],
+
+    tileSize:256
+  });
+
+  map.addLayer({
+
+    id:'railway-layer',
+
+    type:'raster',
+
+    source:'railway'
+  });
+
+  railwayVisible = true;
+}
+
+</script>
+</body>
+</html>
