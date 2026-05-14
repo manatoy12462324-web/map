@@ -176,7 +176,7 @@ button.action{
 
     z-index:1000;
 
-    display:flex;
+    display:none;
 
     gap:10px;
 
@@ -286,8 +286,8 @@ button.action{
     top:15px;
     right:15px;
 
-    width:85px;
-    height:85px;
+    width:50px;
+    height:50px;
 
     background:white;
 
@@ -305,7 +305,7 @@ button.action{
 
     color:black;
 
-    font-size:30px;
+    font-size:17px;
 
     font-weight:bold;
 }
@@ -1380,6 +1380,14 @@ ${timeText}
     });
 
     speak('ルート案内を開始します');
+
+    ///////////////////////////////////////////////////////////
+    // ナビUI表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'carNaviUI'
+    ).style.display='flex';
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1427,6 +1435,14 @@ function clearRoute(){
     currentStepIndex=0;
 
     speak('ルートを削除しました');
+
+    ///////////////////////////////////////////////////////////
+    // ナビUI非表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'carNaviUI'
+    ).style.display='none';
 }
 
 ///////////////////////////////////////////////////////////////
