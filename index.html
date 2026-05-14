@@ -5,7 +5,7 @@
 <meta name="viewport"
 content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
-<title>探索型ブラウザナビ</title>
+<title>探索型GPSナビ</title>
 
 <link
 href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
@@ -31,8 +31,6 @@ html,body{
     height:100%;
 }
 
-/* ハンバーガー */
-
 #menuButton{
 
     position:absolute;
@@ -40,26 +38,22 @@ html,body{
     top:15px;
     left:15px;
 
-    z-index:1000;
-
     width:55px;
     height:55px;
+
+    z-index:1000;
 
     border:none;
     border-radius:16px;
 
-    background:rgba(20,20,20,0.92);
+    background:rgba(0,0,0,0.85);
 
     color:white;
 
     font-size:28px;
 
     cursor:pointer;
-
-    backdrop-filter:blur(10px);
 }
-
-/* サイドバー */
 
 #sidebar{
 
@@ -84,8 +78,6 @@ html,body{
     overflow-y:auto;
 
     color:white;
-
-    backdrop-filter:blur(10px);
 }
 
 #sidebar.open{
@@ -147,7 +139,7 @@ button.action{
 
     z-index:1000;
 
-    background:rgba(0,0,0,0.7);
+    background:rgba(0,0,0,0.75);
 
     color:white;
 
@@ -228,10 +220,6 @@ const map = new maplibregl.Map({
 
         sources:{
 
-            ///////////////////////////////////////////////////
-            // 通常OSM
-            ///////////////////////////////////////////////////
-
             osm:{
                 type:'raster',
 
@@ -242,28 +230,10 @@ const map = new maplibregl.Map({
                 tileSize:256,
 
                 attribution:'© OpenStreetMap'
-            },
-
-            ///////////////////////////////////////////////////
-            // 探索済みOSM
-            ///////////////////////////////////////////////////
-
-            exploredosm:{
-                type:'raster',
-
-                tiles:[
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                ],
-
-                tileSize:256
             }
         },
 
         layers:[
-
-            ///////////////////////////////////////////////////
-            // 通常地図
-            ///////////////////////////////////////////////////
 
             {
                 id:'osm',
@@ -271,22 +241,6 @@ const map = new maplibregl.Map({
                 type:'raster',
 
                 source:'osm'
-            },
-
-            ///////////////////////////////////////////////////
-            // 探索済み地図
-            ///////////////////////////////////////////////////
-
-            {
-                id:'exploredosm',
-
-                type:'raster',
-
-                source:'exploredosm',
-
-                paint:{
-                    'raster-opacity':0
-                }
             }
         ]
     },
@@ -328,14 +282,27 @@ new maplibregl.Marker({
 
 let gameMode=false;
 
+///////////////////////////////////////////////////////////////
+// タイルサイズ
+///////////////////////////////////////////////////////////////
+
 const TILE_SIZE=0.00015;
 
-const STORAGE_KEY='explored_tiles_v2';
+///////////////////////////////////////////////////////////////
+// 保存キー
+///////////////////////////////////////////////////////////////
 
-let exploredTiles=loadExploredTiles();
+const STORAGE_KEY='explored_tiles_v3';
 
 ///////////////////////////////////////////////////////////////
-// 保存読み込み
+// 探索済み
+///////////////////////////////////////////////////////////////
+
+let exploredTiles=
+loadExploredTiles();
+
+///////////////////////////////////////////////////////////////
+// 読み込み
 ///////////////////////////////////////////////////////////////
 
 function loadExploredTiles(){
@@ -351,10 +318,16 @@ function loadExploredTiles(){
     return {};
 }
 
+///////////////////////////////////////////////////////////////
+// 保存
+///////////////////////////////////////////////////////////////
+
 function saveExploredTiles(){
 
     localStorage.setItem(
+
         STORAGE_KEY,
+
         JSON.stringify(exploredTiles)
     );
 }
@@ -375,7 +348,7 @@ function getTileId(lat,lng){
 }
 
 ///////////////////////////////////////////////////////////////
-// Polygon
+// Polygon生成
 ///////////////////////////////////////////////////////////////
 
 function tileToPolygon(tileId){
@@ -401,7 +374,7 @@ function tileToPolygon(tileId){
 }
 
 ///////////////////////////////////////////////////////////////
-// GeoJSON
+// GeoJSON生成
 ///////////////////////////////////////////////////////////////
 
 function generateExploredGeoJSON(){
@@ -416,6 +389,7 @@ function generateExploredGeoJSON(){
 
             geometry:{
                 type:'Polygon',
+
                 coordinates:
                     tileToPolygon(tileId)
             }
@@ -450,46 +424,29 @@ function updateGameMask(){
     }
 
     ///////////////////////////////////////////////////////////
-    // 通常地図暗転
-    ///////////////////////////////////////////////////////////
-
-    map.setPaintProperty(
-
-        'osm',
-
-        'raster-opacity',
-
-        gameMode
-        ?
-        0.03
-        :
-        1
-    );
-
-    ///////////////////////////////////////////////////////////
-    // 探索済み地図
-    ///////////////////////////////////////////////////////////
-
-    map.setPaintProperty(
-
-        'exploredosm',
-
-        'raster-opacity',
-
-        gameMode
-        ?
-        1
-        :
-        0
-    );
-
-    ///////////////////////////////////////////////////////////
-    // 探索済みマスク
+    // 黒マスク表示
     ///////////////////////////////////////////////////////////
 
     map.setLayoutProperty(
 
-        'explored-mask',
+        'unexplored-mask',
+
+        'visibility',
+
+        gameMode
+        ?
+        'visible'
+        :
+        'none'
+    );
+
+    ///////////////////////////////////////////////////////////
+    // 探索済み表示
+    ///////////////////////////////////////////////////////////
+
+    map.setLayoutProperty(
+
+        'explored-fill',
 
         'visibility',
 
@@ -555,7 +512,7 @@ function updateGPS(position){
     }
 
     ///////////////////////////////////////////////////////////
-    // 探索記録
+    // 探索処理
     ///////////////////////////////////////////////////////////
 
     const tileId=
@@ -602,7 +559,7 @@ navigator.geolocation.watchPosition(
 map.on('load',()=>{
 
     ///////////////////////////////////////////////////////////
-    // 探索済みエリア
+    // 探索済み
     ///////////////////////////////////////////////////////////
 
     map.addSource('explored-area',{
@@ -613,12 +570,12 @@ map.on('load',()=>{
     });
 
     ///////////////////////////////////////////////////////////
-    // 探索済みマスク
+    // 探索済み透明
     ///////////////////////////////////////////////////////////
 
     map.addLayer({
 
-        id:'explored-mask',
+        id:'explored-fill',
 
         type:'fill',
 
@@ -630,15 +587,68 @@ map.on('load',()=>{
             // 完全透明
             ///////////////////////////////////////////////////
 
-            'fill-color':'rgba(255,255,255,0)',
+            'fill-color':'rgba(0,0,0,0)',
 
             'fill-opacity':0,
 
             ///////////////////////////////////////////////////
-            // 枠線
+            // 緑枠
             ///////////////////////////////////////////////////
 
             'fill-outline-color':'#00ff99'
+        }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // 未探索黒マスク
+    ///////////////////////////////////////////////////////////
+
+    map.addSource('unexplored-mask-source',{
+
+        type:'geojson',
+
+        data:{
+            type:'Feature',
+
+            geometry:{
+                type:'Polygon',
+
+                coordinates:[[
+                    [-180,-85],
+                    [180,-85],
+                    [180,85],
+                    [-180,85],
+                    [-180,-85]
+                ]]
+            }
+        }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // 黒マスク
+    ///////////////////////////////////////////////////////////
+
+    map.addLayer({
+
+        id:'unexplored-mask',
+
+        type:'fill',
+
+        source:'unexplored-mask-source',
+
+        paint:{
+
+            ///////////////////////////////////////////////////
+            // 黒
+            ///////////////////////////////////////////////////
+
+            'fill-color':'black',
+
+            ///////////////////////////////////////////////////
+            // 半透明
+            ///////////////////////////////////////////////////
+
+            'fill-opacity':0.94
         }
     });
 
@@ -647,7 +657,13 @@ map.on('load',()=>{
     ///////////////////////////////////////////////////////////
 
     map.setLayoutProperty(
-        'explored-mask',
+        'explored-fill',
+        'visibility',
+        'none'
+    );
+
+    map.setLayoutProperty(
+        'unexplored-mask',
         'visibility',
         'none'
     );
