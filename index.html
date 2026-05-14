@@ -8,7 +8,7 @@ name="viewport"
 content="width=device-width, initial-scale=1.0, viewport-fit=cover"
 />
 
-<title>探索型GPSナビ Ultimate+</title>
+<title>探索型GPSナビ Ultimate Game Navi</title>
 
 <link
 href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
@@ -156,15 +156,13 @@ button.action{
     border-radius:12px;
 }
 
-.poiLabel{
+.poi-marker{
 
-    color:white;
+    font-size:28px;
 
-    font-size:12px;
+    cursor:pointer;
 
-    font-weight:bold;
-
-    text-shadow:0 0 5px black;
+    user-select:none;
 }
 
 </style>
@@ -217,6 +215,16 @@ button.action{
 
     <button class="action" id="selectDestinationButton">
         地図タップ選択 OFF
+    </button>
+
+    <div class="title">探索ゲーム</div>
+
+    <button class="action" id="gameModeButton">
+        ゲームモード OFF
+    </button>
+
+    <button class="action" id="resetExploreButton">
+        探索データ削除
     </button>
 
 </div>
@@ -307,6 +315,19 @@ let selectDestinationMode=false;
 
 let destinationMarker=null;
 
+let gameMode=false;
+
+///////////////////////////////////////////////////////////////
+// 探索ゲーム
+///////////////////////////////////////////////////////////////
+
+const TILE_SIZE=0.00015;
+
+const STORAGE_KEY='explored_tiles_union_v1';
+
+let exploredTiles=
+loadExploredTiles();
+
 ///////////////////////////////////////////////////////////////
 // ナビマーカー
 ///////////////////////////////////////////////////////////////
@@ -341,6 +362,208 @@ function speak(text){
     utter.lang='ja-JP';
 
     speechSynthesis.speak(utter);
+}
+
+///////////////////////////////////////////////////////////////
+// 探索データ
+///////////////////////////////////////////////////////////////
+
+function loadExploredTiles(){
+
+    const saved=
+    localStorage.getItem(STORAGE_KEY);
+
+    if(saved){
+
+        return JSON.parse(saved);
+    }
+
+    return {};
+}
+
+function saveExploredTiles(){
+
+    localStorage.setItem(
+
+        STORAGE_KEY,
+
+        JSON.stringify(exploredTiles)
+    );
+}
+
+///////////////////////////////////////////////////////////////
+// タイル
+///////////////////////////////////////////////////////////////
+
+function getTileId(lat,lng){
+
+    const x=
+    Math.floor(lng/TILE_SIZE);
+
+    const y=
+    Math.floor(lat/TILE_SIZE);
+
+    return `${x}_${y}`;
+}
+
+function tileToPolygon(tileId){
+
+    const split=
+    tileId.split('_');
+
+    const x=parseInt(split[0]);
+    const y=parseInt(split[1]);
+
+    const lng=x*TILE_SIZE;
+    const lat=y*TILE_SIZE;
+
+    return [
+
+        [lng,lat],
+        [lng+TILE_SIZE,lat],
+        [lng+TILE_SIZE,lat+TILE_SIZE],
+        [lng,lat+TILE_SIZE],
+        [lng,lat]
+    ];
+}
+
+///////////////////////////////////////////////////////////////
+// マスク
+///////////////////////////////////////////////////////////////
+
+function generateMergedMaskGeoJSON(){
+
+    const world=[
+
+        [-180,-85],
+        [180,-85],
+        [180,85],
+        [-180,85],
+        [-180,-85]
+    ];
+
+    const polygons=[];
+
+    for(const tileId in exploredTiles){
+
+        polygons.push(
+
+            turf.polygon([
+                tileToPolygon(tileId)
+            ])
+        );
+    }
+
+    if(polygons.length===0){
+
+        return {
+
+            type:'FeatureCollection',
+
+            features:[{
+
+                type:'Feature',
+
+                geometry:{
+
+                    type:'Polygon',
+
+                    coordinates:[world]
+                }
+            }]
+        };
+    }
+
+    let merged=polygons[0];
+
+    for(let i=1;i<polygons.length;i++){
+
+        try{
+
+            merged=
+            turf.union(
+                merged,
+                polygons[i]
+            );
+
+        }catch(e){
+
+            console.log(e);
+        }
+    }
+
+    let holes=[];
+
+    if(
+        merged.geometry.type==='Polygon'
+    ){
+
+        holes.push(
+
+            [...merged.geometry.coordinates[0]]
+            .reverse()
+        );
+
+    }else if(
+        merged.geometry.type==='MultiPolygon'
+    ){
+
+        for(const poly of merged.geometry.coordinates){
+
+            holes.push(
+                [...poly[0]].reverse()
+            );
+        }
+    }
+
+    return {
+
+        type:'FeatureCollection',
+
+        features:[{
+
+            type:'Feature',
+
+            geometry:{
+
+                type:'Polygon',
+
+                coordinates:[
+
+                    world,
+                    ...holes
+                ]
+            }
+        }]
+    };
+}
+
+///////////////////////////////////////////////////////////////
+// マスク更新
+///////////////////////////////////////////////////////////////
+
+function updateGameMask(){
+
+    if(map.getSource('mask-source')){
+
+        map.getSource('mask-source')
+        .setData(
+            generateMergedMaskGeoJSON()
+        );
+    }
+
+    map.setLayoutProperty(
+
+        'mask-layer',
+
+        'visibility',
+
+        gameMode
+        ?
+        'visible'
+        :
+        'none'
+    );
 }
 
 ///////////////////////////////////////////////////////////////
@@ -397,6 +620,22 @@ function updateGPS(position){
 
             duration:1000
         });
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 探索処理
+    ///////////////////////////////////////////////////////////
+
+    const tileId=
+    getTileId(lat,lng);
+
+    if(!exploredTiles[tileId]){
+
+        exploredTiles[tileId]=true;
+
+        saveExploredTiles();
+
+        updateGameMask();
     }
 }
 
@@ -469,7 +708,7 @@ map.on('click',(e)=>{
 });
 
 ///////////////////////////////////////////////////////////////
-// ルート生成
+// ルート
 ///////////////////////////////////////////////////////////////
 
 async function startRoute(){
@@ -513,10 +752,6 @@ async function startRoute(){
 
     setDestinationMarker(lng,lat);
 
-    ///////////////////////////////////////////////////////////
-    // 車/徒歩
-    ///////////////////////////////////////////////////////////
-
     const profile=
     navigationMode==='walking'
     ?
@@ -524,16 +759,8 @@ async function startRoute(){
     :
     'driving';
 
-    ///////////////////////////////////////////////////////////
-    // URL
-    ///////////////////////////////////////////////////////////
-
     const url=
 `https://router.project-osrm.org/route/v1/${profile}/${currentPosition[0]},${currentPosition[1]};${lng},${lat}?overview=full&geometries=geojson`;
-
-    ///////////////////////////////////////////////////////////
-    // API
-    ///////////////////////////////////////////////////////////
 
     const res=
     await fetch(url);
@@ -551,10 +778,6 @@ async function startRoute(){
         return;
     }
 
-    ///////////////////////////////////////////////////////////
-    // GeoJSON
-    ///////////////////////////////////////////////////////////
-
     const routeGeoJSON={
 
         type:'Feature',
@@ -562,10 +785,6 @@ async function startRoute(){
         geometry:
         data.routes[0].geometry
     };
-
-    ///////////////////////////////////////////////////////////
-    // 更新
-    ///////////////////////////////////////////////////////////
 
     if(map.getSource('route-source')){
 
@@ -606,10 +825,6 @@ async function startRoute(){
         });
     }
 
-    ///////////////////////////////////////////////////////////
-    // 全体表示
-    ///////////////////////////////////////////////////////////
-
     const bounds=
     new maplibregl.LngLatBounds();
 
@@ -628,7 +843,7 @@ async function startRoute(){
 }
 
 ///////////////////////////////////////////////////////////////
-// ルート消去
+// ルート削除
 ///////////////////////////////////////////////////////////////
 
 function clearRoute(){
@@ -658,7 +873,7 @@ function clearRoute(){
 }
 
 ///////////////////////////////////////////////////////////////
-// POI読み込み
+// POI
 ///////////////////////////////////////////////////////////////
 
 async function loadPOI(){
@@ -700,17 +915,9 @@ out;
     const data=
     await res.json();
 
-    ///////////////////////////////////////////////////////////
-    // 削除
-    ///////////////////////////////////////////////////////////
-
     document
     .querySelectorAll('.poi-marker')
     .forEach(el=>el.remove());
-
-    ///////////////////////////////////////////////////////////
-    // 生成
-    ///////////////////////////////////////////////////////////
 
     data.elements.forEach(el=>{
 
@@ -718,10 +925,6 @@ out;
         document.createElement('div');
 
         div.className='poi-marker';
-
-        ///////////////////////////////////////////////////////
-        // アイコン
-        ///////////////////////////////////////////////////////
 
         if(el.tags.shop==='convenience'){
 
@@ -732,14 +935,6 @@ out;
             div.innerHTML='⛽';
         }
 
-        div.style.fontSize='28px';
-
-        div.style.cursor='pointer';
-
-        ///////////////////////////////////////////////////////
-        // マーカー
-        ///////////////////////////////////////////////////////
-
         const marker=
         new maplibregl.Marker({
 
@@ -749,10 +944,6 @@ out;
         .setLngLat([el.lon,el.lat])
 
         .addTo(map);
-
-        ///////////////////////////////////////////////////////
-        // タップ
-        ///////////////////////////////////////////////////////
 
         div.onclick=()=>{
 
@@ -786,11 +977,48 @@ out;
 
 map.on('load',()=>{
 
-    loadPOI();
+    ///////////////////////////////////////////////////////////
+    // ゲームマスク
+    ///////////////////////////////////////////////////////////
+
+    map.addSource('mask-source',{
+
+        type:'geojson',
+
+        data:
+        generateMergedMaskGeoJSON()
+    });
+
+    map.addLayer({
+
+        id:'mask-layer',
+
+        type:'fill',
+
+        source:'mask-source',
+
+        paint:{
+
+            'fill-color':'black',
+
+            'fill-opacity':0.96
+        }
+    });
+
+    map.setLayoutProperty(
+
+        'mask-layer',
+
+        'visibility',
+
+        'none'
+    );
 
     ///////////////////////////////////////////////////////////
-    // 移動時再取得
+    // POI
     ///////////////////////////////////////////////////////////
+
+    loadPOI();
 
     map.on('moveend',()=>{
 
@@ -944,6 +1172,51 @@ document.getElementById(
     '地図タップ選択 ON'
     :
     '地図タップ選択 OFF';
+};
+
+///////////////////////////////////////////////////////////////
+// ゲームモード
+///////////////////////////////////////////////////////////////
+
+document.getElementById(
+'gameModeButton'
+).onclick=()=>{
+
+    gameMode=!gameMode;
+
+    updateGameMask();
+
+    document.getElementById(
+        'gameModeButton'
+    ).innerText=
+
+    gameMode
+    ?
+    'ゲームモード ON'
+    :
+    'ゲームモード OFF';
+};
+
+///////////////////////////////////////////////////////////////
+// 探索削除
+///////////////////////////////////////////////////////////////
+
+document.getElementById(
+'resetExploreButton'
+).onclick=()=>{
+
+    const ok=
+    confirm(
+        '探索データを削除しますか？'
+    );
+
+    if(!ok)return;
+
+    exploredTiles={};
+
+    saveExploredTiles();
+
+    updateGameMask();
 };
 
 ///////////////////////////////////////////////////////////////
