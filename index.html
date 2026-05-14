@@ -8,7 +8,7 @@ name="viewport"
 content="width=device-width, initial-scale=1.0, viewport-fit=cover"
 />
 
-<title>探索型GPSナビ Ultimate</title>
+<title>探索型GPSナビ Ultimate+</title>
 
 <link
 href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
@@ -156,6 +156,17 @@ button.action{
     border-radius:12px;
 }
 
+.poiLabel{
+
+    color:white;
+
+    font-size:12px;
+
+    font-weight:bold;
+
+    text-shadow:0 0 5px black;
+}
+
 </style>
 </head>
 
@@ -185,33 +196,27 @@ button.action{
         3D表示
     </button>
 
-    <button class="action" id="darkModeButton">
-        ダークモード ON
-    </button>
-
     <div class="title">ナビ</div>
 
     <input
     id="destinationInput"
-    placeholder="目的地 緯度,経度"
+    placeholder="緯度,経度"
     />
 
     <button class="action" id="routeButton">
         ルート開始
     </button>
 
+    <button class="action" id="clearRouteButton">
+        目的地＆ルート消去
+    </button>
+
     <button class="action" id="modeButton">
         車モード
     </button>
 
-    <div class="title">探索ゲーム</div>
-
-    <button class="action" id="gameModeButton">
-        ゲームモード OFF
-    </button>
-
-    <button class="action" id="resetExploreButton">
-        探索データ削除
+    <button class="action" id="selectDestinationButton">
+        地図タップ選択 OFF
     </button>
 
 </div>
@@ -226,7 +231,7 @@ GPS取得中...
 // 地図
 ///////////////////////////////////////////////////////////////
 
-const map = new maplibregl.Map({
+const map=new maplibregl.Map({
 
     container:'map',
 
@@ -253,6 +258,7 @@ const map = new maplibregl.Map({
         layers:[
 
             {
+
                 id:'osm',
 
                 type:'raster',
@@ -266,7 +272,7 @@ const map = new maplibregl.Map({
 
     zoom:16,
 
-    pitch:65
+    pitch:60
 });
 
 ///////////////////////////////////////////////////////////////
@@ -284,7 +290,7 @@ document.getElementById(
 };
 
 ///////////////////////////////////////////////////////////////
-// GPS
+// 状態
 ///////////////////////////////////////////////////////////////
 
 let currentPosition=null;
@@ -295,22 +301,20 @@ let northUp=false;
 
 let topView=false;
 
-let darkMode=true;
-
-///////////////////////////////////////////////////////////////
-// ナビ
-///////////////////////////////////////////////////////////////
-
 let navigationMode='driving';
 
+let selectDestinationMode=false;
+
+let destinationMarker=null;
+
 ///////////////////////////////////////////////////////////////
-// ナビ風マーカー
+// ナビマーカー
 ///////////////////////////////////////////////////////////////
 
 const navMarker=document.createElement('div');
 
-navMarker.style.width='40px';
-navMarker.style.height='40px';
+navMarker.style.width='42px';
+navMarker.style.height='42px';
 
 navMarker.style.background=
 'url(https://cdn-icons-png.flaticon.com/512/684/684908.png)';
@@ -324,220 +328,6 @@ new maplibregl.Marker({
 
     element:navMarker
 });
-
-///////////////////////////////////////////////////////////////
-// ゲームモード
-///////////////////////////////////////////////////////////////
-
-let gameMode=false;
-
-const TILE_SIZE=0.00015;
-
-const STORAGE_KEY='explored_tiles_union_v1';
-
-let exploredTiles=
-loadExploredTiles();
-
-///////////////////////////////////////////////////////////////
-// 保存
-///////////////////////////////////////////////////////////////
-
-function loadExploredTiles(){
-
-    const saved=
-    localStorage.getItem(STORAGE_KEY);
-
-    if(saved){
-
-        return JSON.parse(saved);
-    }
-
-    return {};
-}
-
-function saveExploredTiles(){
-
-    localStorage.setItem(
-
-        STORAGE_KEY,
-
-        JSON.stringify(exploredTiles)
-    );
-}
-
-///////////////////////////////////////////////////////////////
-// タイル
-///////////////////////////////////////////////////////////////
-
-function getTileId(lat,lng){
-
-    const x=
-    Math.floor(lng/TILE_SIZE);
-
-    const y=
-    Math.floor(lat/TILE_SIZE);
-
-    return `${x}_${y}`;
-}
-
-function tileToPolygon(tileId){
-
-    const split=
-    tileId.split('_');
-
-    const x=parseInt(split[0]);
-    const y=parseInt(split[1]);
-
-    const lng=x*TILE_SIZE;
-    const lat=y*TILE_SIZE;
-
-    return [
-
-        [lng,lat],
-        [lng+TILE_SIZE,lat],
-        [lng+TILE_SIZE,lat+TILE_SIZE],
-        [lng,lat+TILE_SIZE],
-        [lng,lat]
-    ];
-}
-
-///////////////////////////////////////////////////////////////
-// マスク生成
-///////////////////////////////////////////////////////////////
-
-function generateMergedMaskGeoJSON(){
-
-    const world=[
-
-        [-180,-85],
-        [180,-85],
-        [180,85],
-        [-180,85],
-        [-180,-85]
-    ];
-
-    const polygons=[];
-
-    for(const tileId in exploredTiles){
-
-        polygons.push(
-
-            turf.polygon([
-                tileToPolygon(tileId)
-            ])
-        );
-    }
-
-    if(polygons.length===0){
-
-        return {
-
-            type:'FeatureCollection',
-
-            features:[{
-
-                type:'Feature',
-
-                geometry:{
-                    type:'Polygon',
-                    coordinates:[world]
-                }
-            }]
-        };
-    }
-
-    let merged=polygons[0];
-
-    for(let i=1;i<polygons.length;i++){
-
-        try{
-
-            merged=
-            turf.union(
-                merged,
-                polygons[i]
-            );
-
-        }catch(e){
-
-            console.log(e);
-        }
-    }
-
-    let holes=[];
-
-    if(
-        merged.geometry.type==='Polygon'
-    ){
-
-        holes.push(
-
-            [...merged.geometry.coordinates[0]]
-            .reverse()
-        );
-    }
-
-    else if(
-        merged.geometry.type==='MultiPolygon'
-    ){
-
-        for(const poly of merged.geometry.coordinates){
-
-            holes.push(
-                [...poly[0]].reverse()
-            );
-        }
-    }
-
-    return {
-
-        type:'FeatureCollection',
-
-        features:[{
-
-            type:'Feature',
-
-            geometry:{
-
-                type:'Polygon',
-
-                coordinates:[
-
-                    world,
-                    ...holes
-                ]
-            }
-        }]
-    };
-}
-
-///////////////////////////////////////////////////////////////
-// マスク更新
-///////////////////////////////////////////////////////////////
-
-function updateGameMask(){
-
-    if(map.getSource('mask-source')){
-
-        map.getSource('mask-source')
-        .setData(
-            generateMergedMaskGeoJSON()
-        );
-    }
-
-    map.setLayoutProperty(
-
-        'mask-layer',
-
-        'visibility',
-
-        gameMode
-        ?
-        'visible'
-        :
-        'none'
-    );
-}
 
 ///////////////////////////////////////////////////////////////
 // 音声
@@ -554,177 +344,7 @@ function speak(text){
 }
 
 ///////////////////////////////////////////////////////////////
-// POI
-///////////////////////////////////////////////////////////////
-
-async function loadPOI(){
-
-    const center=map.getCenter();
-
-    const query=`
-
-    [out:json];
-
-    (
-
-      node["shop"="convenience"]
-      (${center.lat-0.02},
-       ${center.lng-0.02},
-       ${center.lat+0.02},
-       ${center.lng+0.02});
-
-    );
-
-    out;
-    `;
-
-    const url=
-    "https://overpass-api.de/api/interpreter?data="
-    +
-    encodeURIComponent(query);
-
-    const res=await fetch(url);
-
-    const data=await res.json();
-
-    const features=
-    data.elements.map(el=>({
-
-        type:'Feature',
-
-        geometry:{
-            type:'Point',
-            coordinates:[el.lon,el.lat]
-        },
-
-        properties:{
-            name:el.tags.name || 'コンビニ'
-        }
-    }));
-
-    if(map.getSource('poi-source')){
-
-        map.getSource('poi-source')
-        .setData({
-
-            type:'FeatureCollection',
-
-            features
-        });
-
-        return;
-    }
-
-    map.addSource('poi-source',{
-
-        type:'geojson',
-
-        data:{
-
-            type:'FeatureCollection',
-
-            features
-        }
-    });
-
-    map.addLayer({
-
-        id:'poi-layer',
-
-        type:'circle',
-
-        source:'poi-source',
-
-        paint:{
-
-            'circle-radius':6,
-
-            'circle-color':'#00ff88'
-        }
-    });
-}
-
-///////////////////////////////////////////////////////////////
-// ルート
-///////////////////////////////////////////////////////////////
-
-async function startRoute(){
-
-    if(!currentPosition)return;
-
-    const input=
-    document.getElementById(
-        'destinationInput'
-    ).value;
-
-    const split=input.split(',');
-
-    const destLat=
-    parseFloat(split[0]);
-
-    const destLng=
-    parseFloat(split[1]);
-
-    const profile=
-    navigationMode==='walking'
-    ?
-    'foot'
-    :
-    'driving';
-
-    const url=
-`https://router.project-osrm.org/route/v1/${profile}/
-${currentPosition[0]},${currentPosition[1]};
-${destLng},${destLat}
-?overview=full&geometries=geojson`;
-
-    const res=await fetch(url);
-
-    const data=await res.json();
-
-    const route={
-
-        type:'Feature',
-
-        geometry:data.routes[0].geometry
-    };
-
-    if(map.getSource('route-source')){
-
-        map.getSource('route-source')
-        .setData(route);
-
-    }else{
-
-        map.addSource('route-source',{
-
-            type:'geojson',
-
-            data:route
-        });
-
-        map.addLayer({
-
-            id:'route-layer',
-
-            type:'line',
-
-            source:'route-source',
-
-            paint:{
-
-                'line-width':6,
-
-                'line-color':'#00aaff'
-            }
-        });
-    }
-
-    speak('ルート案内を開始します');
-}
-
-///////////////////////////////////////////////////////////////
-// GPS更新
+// GPS
 ///////////////////////////////////////////////////////////////
 
 function updateGPS(position){
@@ -759,31 +379,24 @@ function updateGPS(position){
 
             center:currentPosition,
 
-            duration:1000,
-
             zoom:map.getZoom(),
 
-            pitch:topView ? 0 : 65,
+            pitch:
+            topView
+            ?
+            0
+            :
+            60,
 
             bearing:
             northUp
             ?
             0
             :
-            heading
+            heading,
+
+            duration:1000
         });
-    }
-
-    const tileId=
-    getTileId(lat,lng);
-
-    if(!exploredTiles[tileId]){
-
-        exploredTiles[tileId]=true;
-
-        saveExploredTiles();
-
-        updateGameMask();
     }
 }
 
@@ -812,49 +425,381 @@ navigator.geolocation.watchPosition(
 });
 
 ///////////////////////////////////////////////////////////////
+// 目的地マーカー
+///////////////////////////////////////////////////////////////
+
+function setDestinationMarker(lng,lat){
+
+    if(destinationMarker){
+
+        destinationMarker.remove();
+    }
+
+    destinationMarker=
+    new maplibregl.Marker({
+
+        color:'#ff3333'
+    })
+
+    .setLngLat([lng,lat])
+
+    .addTo(map);
+
+    document.getElementById(
+        'destinationInput'
+    ).value=
+
+    `${lat},${lng}`;
+}
+
+///////////////////////////////////////////////////////////////
+// 地図タップ目的地
+///////////////////////////////////////////////////////////////
+
+map.on('click',(e)=>{
+
+    if(!selectDestinationMode)return;
+
+    const lng=e.lngLat.lng;
+    const lat=e.lngLat.lat;
+
+    setDestinationMarker(lng,lat);
+
+    speak('目的地を設定しました');
+});
+
+///////////////////////////////////////////////////////////////
+// ルート生成
+///////////////////////////////////////////////////////////////
+
+async function startRoute(){
+
+    if(!currentPosition){
+
+        alert('GPS取得中');
+        return;
+    }
+
+    const input=
+    document.getElementById(
+        'destinationInput'
+    ).value.trim();
+
+    if(!input){
+
+        alert('目的地未入力');
+        return;
+    }
+
+    const split=input.split(',');
+
+    if(split.length!==2){
+
+        alert('緯度,経度');
+        return;
+    }
+
+    const lat=
+    parseFloat(split[0]);
+
+    const lng=
+    parseFloat(split[1]);
+
+    if(isNaN(lat)||isNaN(lng)){
+
+        alert('座標エラー');
+        return;
+    }
+
+    setDestinationMarker(lng,lat);
+
+    ///////////////////////////////////////////////////////////
+    // 車/徒歩
+    ///////////////////////////////////////////////////////////
+
+    const profile=
+    navigationMode==='walking'
+    ?
+    'foot'
+    :
+    'driving';
+
+    ///////////////////////////////////////////////////////////
+    // URL
+    ///////////////////////////////////////////////////////////
+
+    const url=
+`https://router.project-osrm.org/route/v1/${profile}/${currentPosition[0]},${currentPosition[1]};${lng},${lat}?overview=full&geometries=geojson`;
+
+    ///////////////////////////////////////////////////////////
+    // API
+    ///////////////////////////////////////////////////////////
+
+    const res=
+    await fetch(url);
+
+    const data=
+    await res.json();
+
+    if(!data.routes||
+       !data.routes.length){
+
+        alert('ルート取得失敗');
+
+        console.log(data);
+
+        return;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // GeoJSON
+    ///////////////////////////////////////////////////////////
+
+    const routeGeoJSON={
+
+        type:'Feature',
+
+        geometry:
+        data.routes[0].geometry
+    };
+
+    ///////////////////////////////////////////////////////////
+    // 更新
+    ///////////////////////////////////////////////////////////
+
+    if(map.getSource('route-source')){
+
+        map.getSource(
+            'route-source'
+        ).setData(routeGeoJSON);
+
+    }else{
+
+        map.addSource('route-source',{
+
+            type:'geojson',
+
+            data:routeGeoJSON
+        });
+
+        map.addLayer({
+
+            id:'route-layer',
+
+            type:'line',
+
+            source:'route-source',
+
+            layout:{
+
+                'line-cap':'round',
+
+                'line-join':'round'
+            },
+
+            paint:{
+
+                'line-color':'#00aaff',
+
+                'line-width':7
+            }
+        });
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 全体表示
+    ///////////////////////////////////////////////////////////
+
+    const bounds=
+    new maplibregl.LngLatBounds();
+
+    routeGeoJSON.geometry.coordinates
+    .forEach(coord=>{
+
+        bounds.extend(coord);
+    });
+
+    map.fitBounds(bounds,{
+
+        padding:80
+    });
+
+    speak('ルート案内を開始します');
+}
+
+///////////////////////////////////////////////////////////////
+// ルート消去
+///////////////////////////////////////////////////////////////
+
+function clearRoute(){
+
+    if(map.getLayer('route-layer')){
+
+        map.removeLayer('route-layer');
+    }
+
+    if(map.getSource('route-source')){
+
+        map.removeSource('route-source');
+    }
+
+    if(destinationMarker){
+
+        destinationMarker.remove();
+
+        destinationMarker=null;
+    }
+
+    document.getElementById(
+        'destinationInput'
+    ).value='';
+
+    speak('ルートを削除しました');
+}
+
+///////////////////////////////////////////////////////////////
+// POI読み込み
+///////////////////////////////////////////////////////////////
+
+async function loadPOI(){
+
+    const center=
+    map.getCenter();
+
+    const query=`
+
+[out:json];
+
+(
+
+node["shop"="convenience"]
+(${center.lat-0.03},
+${center.lng-0.03},
+${center.lat+0.03},
+${center.lng+0.03});
+
+node["amenity"="fuel"]
+(${center.lat-0.03},
+${center.lng-0.03},
+${center.lat+0.03},
+${center.lng+0.03});
+
+);
+
+out;
+`;
+
+    const url=
+    "https://overpass-api.de/api/interpreter?data="
+    +
+    encodeURIComponent(query);
+
+    const res=
+    await fetch(url);
+
+    const data=
+    await res.json();
+
+    ///////////////////////////////////////////////////////////
+    // 削除
+    ///////////////////////////////////////////////////////////
+
+    document
+    .querySelectorAll('.poi-marker')
+    .forEach(el=>el.remove());
+
+    ///////////////////////////////////////////////////////////
+    // 生成
+    ///////////////////////////////////////////////////////////
+
+    data.elements.forEach(el=>{
+
+        const div=
+        document.createElement('div');
+
+        div.className='poi-marker';
+
+        ///////////////////////////////////////////////////////
+        // アイコン
+        ///////////////////////////////////////////////////////
+
+        if(el.tags.shop==='convenience'){
+
+            div.innerHTML='🏪';
+
+        }else if(el.tags.amenity==='fuel'){
+
+            div.innerHTML='⛽';
+        }
+
+        div.style.fontSize='28px';
+
+        div.style.cursor='pointer';
+
+        ///////////////////////////////////////////////////////
+        // マーカー
+        ///////////////////////////////////////////////////////
+
+        const marker=
+        new maplibregl.Marker({
+
+            element:div
+        })
+
+        .setLngLat([el.lon,el.lat])
+
+        .addTo(map);
+
+        ///////////////////////////////////////////////////////
+        // タップ
+        ///////////////////////////////////////////////////////
+
+        div.onclick=()=>{
+
+            const name=
+            el.tags.name || '地点';
+
+            const ok=
+            confirm(
+`${name}
+
+目的地に設定しますか？`
+            );
+
+            if(!ok)return;
+
+            setDestinationMarker(
+                el.lon,
+                el.lat
+            );
+
+            speak(
+                '目的地を設定しました'
+            );
+        };
+    });
+}
+
+///////////////////////////////////////////////////////////////
 // 地図ロード
 ///////////////////////////////////////////////////////////////
 
 map.on('load',()=>{
 
-    map.addSource('mask-source',{
-
-        type:'geojson',
-
-        data:
-        generateMergedMaskGeoJSON()
-    });
-
-    map.addLayer({
-
-        id:'mask-layer',
-
-        type:'fill',
-
-        source:'mask-source',
-
-        paint:{
-
-            'fill-color':'black',
-
-            'fill-opacity':0.96
-        }
-    });
-
-    map.setLayoutProperty(
-
-        'mask-layer',
-
-        'visibility',
-
-        'none'
-    );
-
     loadPOI();
+
+    ///////////////////////////////////////////////////////////
+    // 移動時再取得
+    ///////////////////////////////////////////////////////////
+
+    map.on('moveend',()=>{
+
+        loadPOI();
+    });
 });
 
 ///////////////////////////////////////////////////////////////
-// GPS追従
+// ボタン
 ///////////////////////////////////////////////////////////////
 
 document.getElementById(
@@ -864,7 +809,7 @@ document.getElementById(
     followMode=!followMode;
 
     document.getElementById(
-        'followButton'
+    'followButton'
     ).innerText=
 
     followMode
@@ -874,8 +819,6 @@ document.getElementById(
     'GPS追従 OFF';
 };
 
-///////////////////////////////////////////////////////////////
-// 現在地
 ///////////////////////////////////////////////////////////////
 
 document.getElementById(
@@ -892,8 +835,6 @@ document.getElementById(
     });
 };
 
-///////////////////////////////////////////////////////////////
-// 北固定
 ///////////////////////////////////////////////////////////////
 
 document.getElementById(
@@ -914,8 +855,6 @@ document.getElementById(
 };
 
 ///////////////////////////////////////////////////////////////
-// 真上表示
-///////////////////////////////////////////////////////////////
 
 document.getElementById(
 'viewModeButton'
@@ -930,9 +869,7 @@ document.getElementById(
         ?
         0
         :
-        65,
-
-        duration:1000
+        60
     });
 
     document.getElementById(
@@ -947,42 +884,6 @@ document.getElementById(
 };
 
 ///////////////////////////////////////////////////////////////
-// ダークモード
-///////////////////////////////////////////////////////////////
-
-document.getElementById(
-'darkModeButton'
-).onclick=()=>{
-
-    darkMode=!darkMode;
-
-    map.setPaintProperty(
-
-        'osm',
-
-        'raster-brightness-max',
-
-        darkMode
-        ?
-        0.4
-        :
-        1
-    );
-
-    document.getElementById(
-    'darkModeButton'
-    ).innerText=
-
-    darkMode
-    ?
-    'ダークモード ON'
-    :
-    'ダークモード OFF';
-};
-
-///////////////////////////////////////////////////////////////
-// ナビ
-///////////////////////////////////////////////////////////////
 
 document.getElementById(
 'routeButton'
@@ -990,6 +891,17 @@ document.getElementById(
 
     startRoute();
 };
+
+///////////////////////////////////////////////////////////////
+
+document.getElementById(
+'clearRouteButton'
+).onclick=()=>{
+
+    clearRoute();
+};
+
+///////////////////////////////////////////////////////////////
 
 document.getElementById(
 'modeButton'
@@ -1004,7 +916,7 @@ document.getElementById(
     'driving';
 
     document.getElementById(
-        'modeButton'
+    'modeButton'
     ).innerText=
 
     navigationMode==='driving'
@@ -1015,60 +927,35 @@ document.getElementById(
 };
 
 ///////////////////////////////////////////////////////////////
-// ゲームモード
-///////////////////////////////////////////////////////////////
 
 document.getElementById(
-'gameModeButton'
+'selectDestinationButton'
 ).onclick=()=>{
 
-    gameMode=!gameMode;
-
-    updateGameMask();
+    selectDestinationMode=
+    !selectDestinationMode;
 
     document.getElementById(
-        'gameModeButton'
+    'selectDestinationButton'
     ).innerText=
 
-    gameMode
+    selectDestinationMode
     ?
-    'ゲームモード ON'
+    '地図タップ選択 ON'
     :
-    'ゲームモード OFF';
+    '地図タップ選択 OFF';
 };
 
 ///////////////////////////////////////////////////////////////
-// 探索削除
-///////////////////////////////////////////////////////////////
-
-document.getElementById(
-'resetExploreButton'
-).onclick=()=>{
-
-    const ok=
-    confirm(
-        '探索データを削除しますか？'
-    );
-
-    if(!ok)return;
-
-    exploredTiles={};
-
-    saveExploredTiles();
-
-    updateGameMask();
-};
-
-///////////////////////////////////////////////////////////////
-// HTTPS警告
+// HTTPS
 ///////////////////////////////////////////////////////////////
 
 if(location.protocol!=='https:'){
 
     alert(
-`iPhoneでGPSを使うにはHTTPSが必要です。
+`GPS利用にはHTTPSが必要です
 
-GitHub Pagesなどで公開してください。`
+GitHub Pages推奨`
     );
 }
 
