@@ -2,120 +2,169 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
-<title>OSM Browser Navi</title>
+<title>探索型 OSM ナビ</title>
 
-<!-- MapLibre -->
-<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
+<link
+href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
+rel="stylesheet"
+/>
+
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 
 <style>
-html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: sans-serif;
-    background: #000;
+
+html, body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family:sans-serif;
 }
 
-#map {
-    width: 100%;
-    height: 100%;
+#map{
+    width:100%;
+    height:100%;
 }
 
 /* ハンバーガー */
-#menuButton {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    z-index: 1000;
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    border: none;
-    background: rgba(20,20,20,0.9);
-    color: white;
-    font-size: 26px;
-    cursor: pointer;
-    backdrop-filter: blur(10px);
+#menuButton{
+    position:absolute;
+    top:15px;
+    left:15px;
+    z-index:1000;
+
+    width:55px;
+    height:55px;
+
+    border:none;
+    border-radius:16px;
+
+    background:rgba(20,20,20,0.9);
+    color:white;
+
+    font-size:28px;
+
+    backdrop-filter:blur(10px);
+
+    cursor:pointer;
 }
 
-/* サイドメニュー */
-#sidebar {
-    position: absolute;
-    top: 0;
-    left: -340px;
-    width: 320px;
-    height: 100%;
-    background: rgba(15,15,15,0.96);
-    z-index: 999;
-    transition: left 0.3s ease;
-    padding: 80px 20px 20px;
-    box-sizing: border-box;
-    overflow-y: auto;
-    color: white;
-    backdrop-filter: blur(12px);
+/* サイドバー */
+#sidebar{
+
+    position:absolute;
+    top:0;
+    left:-340px;
+
+    width:320px;
+    height:100%;
+
+    background:rgba(10,10,10,0.96);
+
+    z-index:999;
+
+    transition:0.3s;
+
+    padding:80px 20px 20px;
+
+    box-sizing:border-box;
+
+    overflow-y:auto;
+
+    color:white;
+
+    backdrop-filter:blur(10px);
 }
 
-#sidebar.open {
-    left: 0;
+#sidebar.open{
+    left:0;
 }
 
-.sectionTitle {
-    font-size: 18px;
-    margin-top: 20px;
-    margin-bottom: 10px;
-    font-weight: bold;
+.title{
+    margin-top:20px;
+    margin-bottom:10px;
+    font-size:18px;
+    font-weight:bold;
 }
 
-input {
-    width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    margin-bottom: 10px;
-    font-size: 16px;
-    box-sizing: border-box;
+input{
+
+    width:100%;
+
+    padding:14px;
+
+    border:none;
+    border-radius:12px;
+
+    margin-bottom:10px;
+
+    font-size:16px;
+
+    box-sizing:border-box;
 }
 
-button.action {
-    width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    margin-bottom: 10px;
-    background: #2196f3;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
+button.action{
+
+    width:100%;
+
+    padding:14px;
+
+    border:none;
+    border-radius:12px;
+
+    margin-bottom:10px;
+
+    background:#2196f3;
+
+    color:white;
+
+    font-size:16px;
+
+    cursor:pointer;
 }
 
-.infoBox {
-    background: rgba(255,255,255,0.08);
-    padding: 12px;
-    border-radius: 12px;
-    margin-top: 10px;
-    font-size: 14px;
+#gpsInfo{
+
+    position:absolute;
+
+    bottom:20px;
+    left:20px;
+
+    z-index:1000;
+
+    background:rgba(0,0,0,0.7);
+
+    color:white;
+
+    padding:10px 14px;
+
+    border-radius:12px;
 }
 
-#gpsStatus {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    z-index: 1000;
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 12px;
-    font-size: 14px;
+#mappingModeIndicator{
+
+    position:absolute;
+
+    top:15px;
+    right:15px;
+
+    z-index:1000;
+
+    background:rgba(0,0,0,0.7);
+
+    color:#00ff99;
+
+    padding:10px 14px;
+
+    border-radius:12px;
+
+    display:none;
 }
 
-.maplibregl-popup-content {
-    border-radius: 12px;
-}
 </style>
 </head>
 
@@ -127,375 +176,537 @@ button.action {
 
 <div id="sidebar">
 
-    <div class="sectionTitle">目的地検索</div>
+    <div class="title">目的地検索</div>
 
-    <input type="text" id="destinationInput" placeholder="目的地を入力">
+    <input
+        type="text"
+        id="destinationInput"
+        placeholder="目的地を入力"
+    >
 
     <button class="action" id="searchButton">
         ルート検索
     </button>
 
+    <button class="action" id="clearRouteButton">
+        目的地＆ルート消去
+    </button>
+
+    <button class="action" id="manualSelectButton">
+        地図タップで目的地選択
+    </button>
+
+    <div class="title">GPS</div>
+
     <button class="action" id="gpsButton">
         現在地へ移動
     </button>
 
-    <div class="sectionTitle">地図表示</div>
+    <div class="title">探索マップ</div>
+
+    <button class="action" id="mappingButton">
+        未探索エリア黒塗り ON/OFF
+    </button>
+
+    <div class="title">3D</div>
 
     <button class="action" id="toggle3d">
         3D建物 ON/OFF
     </button>
 
-    <button class="action" id="toggleTrack">
-        GPS軌跡 ON/OFF
-    </button>
-
-    <div class="sectionTitle">情報</div>
-
-    <div class="infoBox">
-        地図:
-        :contentReference[oaicite:0]{index=0}
-        <br><br>
-        描画:
-        :contentReference[oaicite:1]{index=1}
-        <br><br>
-        ルート:
-        OSRM
-        <br><br>
-        検索:
-        Overpass API / Nominatim
-    </div>
-
 </div>
 
-<div id="gpsStatus">
-    GPS取得中...
+<div id="gpsInfo">
+GPS取得中...
+</div>
+
+<div id="mappingModeIndicator">
+探索モード ON
 </div>
 
 <script>
 
-///////////////////////////////////////////////////////////
-// MapLibre 初期化
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// 地図
+//////////////////////////////////////////////////////
 
 const map = new maplibregl.Map({
-    container: 'map',
 
-    style: {
-        version: 8,
+    container:'map',
 
-        sources: {
-            osm: {
-                type: 'raster',
-                tiles: [
+    style:{
+        version:8,
+
+        sources:{
+            osm:{
+                type:'raster',
+                tiles:[
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                 ],
-                tileSize: 256,
-                attribution:
-                    '&copy; OpenStreetMap Contributors'
+                tileSize:256,
+                attribution:'© OpenStreetMap'
             }
         },
 
-        layers: [
+        layers:[
             {
-                id: 'osm',
-                type: 'raster',
-                source: 'osm'
+                id:'osm',
+                type:'raster',
+                source:'osm'
             }
         ]
     },
 
-    center: [135.7681, 35.0116], // 京都
-    zoom: 15,
-    pitch: 45,
-    bearing: 0
+    center:[135.7681,35.0116],
+    zoom:16,
+    pitch:45
 });
 
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 // UI
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 
-const sidebar = document.getElementById('sidebar');
-const menuButton = document.getElementById('menuButton');
+const sidebar =
+document.getElementById('sidebar');
 
-menuButton.onclick = () => {
+document.getElementById('menuButton')
+.onclick=()=>{
+
     sidebar.classList.toggle('open');
 };
 
-///////////////////////////////////////////////////////////
-// 現在地
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// GPS
+//////////////////////////////////////////////////////
 
-let currentPosition = null;
+let currentPosition=null;
 
-const userMarker = new maplibregl.Marker({
-    color: '#2196f3'
+const userMarker=
+new maplibregl.Marker({
+    color:'#00aaff'
 });
 
-function updateGPS(position) {
+function gpsSuccess(pos){
 
-    const lat = position.coords.latitude;
-    const lng = position.coords.longitude;
+    const lat=pos.coords.latitude;
+    const lng=pos.coords.longitude;
 
-    currentPosition = [lng, lat];
+    currentPosition=[lng,lat];
 
     userMarker
-        .setLngLat(currentPosition)
-        .addTo(map);
+    .setLngLat(currentPosition)
+    .addTo(map);
 
-    map.flyTo({
-        center: currentPosition,
-        zoom: 17,
-        speed: 1.2
-    });
+    document.getElementById('gpsInfo')
+    .innerText=
+    `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
-    document.getElementById('gpsStatus').innerText =
-        `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
+    if(autoCenter){
 
-function gpsError(err) {
-    document.getElementById('gpsStatus').innerText =
-        'GPS取得失敗';
+        map.flyTo({
+            center:currentPosition,
+            zoom:17,
+            speed:1.2
+        });
+
+        autoCenter=false;
+    }
+
+    //////////////////////////////////////////////////////
+    // 探索済み追加
+    //////////////////////////////////////////////////////
+
+    exploredCoordinates.push([lng,lat]);
+
+    if(map.getSource('explored')){
+
+        map.getSource('explored')
+        .setData({
+            type:'Feature',
+            geometry:{
+                type:'LineString',
+                coordinates:exploredCoordinates
+            }
+        });
+    }
 }
 
 navigator.geolocation.watchPosition(
-    updateGPS,
-    gpsError,
+    gpsSuccess,
+    err=>console.log(err),
     {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 10000
+        enableHighAccuracy:true,
+        maximumAge:0,
+        timeout:10000
     }
 );
 
-///////////////////////////////////////////////////////////
-// 現在地へ移動
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// 現在地移動
+//////////////////////////////////////////////////////
 
-document.getElementById('gpsButton').onclick = () => {
+let autoCenter=true;
 
-    if (!currentPosition) return;
+document.getElementById('gpsButton')
+.onclick=()=>{
+
+    if(!currentPosition)return;
 
     map.flyTo({
-        center: currentPosition,
-        zoom: 17
+        center:currentPosition,
+        zoom:17
     });
 };
 
-///////////////////////////////////////////////////////////
-// 目的地検索（Nominatim）
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// 目的地検索
+//////////////////////////////////////////////////////
 
-let destinationMarker = null;
+let destinationMarker=null;
 
-async function searchDestination(query) {
+async function searchDestination(query){
 
-    const url =
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+    const url=
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
 
-    const response = await fetch(url);
+    const response=await fetch(url);
 
-    const data = await response.json();
+    const data=await response.json();
 
-    if (!data.length) {
-        alert('見つかりませんでした');
+    if(!data.length){
+
+        alert('見つかりません');
         return;
     }
 
-    const result = data[0];
+    const result=data[0];
 
-    const lng = parseFloat(result.lon);
-    const lat = parseFloat(result.lat);
+    const lng=parseFloat(result.lon);
+    const lat=parseFloat(result.lat);
 
-    if (destinationMarker) {
+    setDestination([lng,lat],result.display_name);
+}
+
+//////////////////////////////////////////////////////
+// 目的地設定
+//////////////////////////////////////////////////////
+
+async function setDestination(coord,name='目的地'){
+
+    if(destinationMarker){
+
         destinationMarker.remove();
     }
 
-    destinationMarker =
-        new maplibregl.Marker({
-            color: 'red'
-        })
-        .setLngLat([lng, lat])
-        .setPopup(
-            new maplibregl.Popup()
-            .setHTML(`<b>${result.display_name}</b>`)
-        )
-        .addTo(map);
+    destinationMarker=
+    new maplibregl.Marker({
+        color:'red'
+    })
+    .setLngLat(coord)
+    .setPopup(
+        new maplibregl.Popup()
+        .setHTML(`<b>${name}</b>`)
+    )
+    .addTo(map);
 
     map.flyTo({
-        center: [lng, lat],
-        zoom: 16
+        center:coord,
+        zoom:16
     });
 
-    if (currentPosition) {
-        getRoute(currentPosition, [lng, lat]);
+    if(currentPosition){
+
+        getRoute(currentPosition,coord);
     }
 }
 
-///////////////////////////////////////////////////////////
-// OSRMルート
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// ルート
+//////////////////////////////////////////////////////
 
-async function getRoute(start, end) {
+async function getRoute(start,end){
 
-    const url =
-`https://router.project-osrm.org/route/v1/driving/
-${start[0]},${start[1]};
-${end[0]},${end[1]}
-?overview=full&geometries=geojson`;
+    const url=
+`https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
 
-    const response = await fetch(url);
+    const response=await fetch(url);
 
-    const data = await response.json();
+    const data=await response.json();
 
-    const route = data.routes[0].geometry;
+    const route=data.routes[0].geometry;
 
-    if (map.getSource('route')) {
+    if(map.getSource('route')){
+
         map.removeLayer('route');
         map.removeSource('route');
     }
 
-    map.addSource('route', {
-        type: 'geojson',
-        data: {
-            type: 'Feature',
-            geometry: route
+    map.addSource('route',{
+        type:'geojson',
+        data:{
+            type:'Feature',
+            geometry:route
         }
     });
 
     map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        paint: {
-            'line-color': '#00e5ff',
-            'line-width': 6
+        id:'route',
+        type:'line',
+        source:'route',
+        paint:{
+            'line-color':'#00ffff',
+            'line-width':6
         }
     });
 }
 
-document.getElementById('searchButton').onclick = () => {
+//////////////////////////////////////////////////////
+// 検索ボタン
+//////////////////////////////////////////////////////
 
-    const query =
-        document.getElementById('destinationInput').value;
+document.getElementById('searchButton')
+.onclick=()=>{
 
-    if (!query) return;
+    const q=
+    document.getElementById('destinationInput')
+    .value;
 
-    searchDestination(query);
+    if(!q)return;
+
+    searchDestination(q);
 };
 
-///////////////////////////////////////////////////////////
-// GPS軌跡
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// ルート消去
+//////////////////////////////////////////////////////
 
-let trackingEnabled = true;
+document.getElementById('clearRouteButton')
+.onclick=()=>{
 
-const trackGeoJSON = {
-    type: 'Feature',
-    geometry: {
-        type: 'LineString',
-        coordinates: []
+    if(destinationMarker){
+
+        destinationMarker.remove();
+        destinationMarker=null;
+    }
+
+    if(map.getLayer('route')){
+
+        map.removeLayer('route');
+    }
+
+    if(map.getSource('route')){
+
+        map.removeSource('route');
     }
 };
 
-map.on('load', () => {
+//////////////////////////////////////////////////////
+// 手動目的地選択
+//////////////////////////////////////////////////////
 
-    map.addSource('track', {
-        type: 'geojson',
-        data: trackGeoJSON
-    });
+let manualMode=false;
 
-    map.addLayer({
-        id: 'track',
-        type: 'line',
-        source: 'track',
-        paint: {
-            'line-color': '#00ff99',
-            'line-width': 4
-        }
-    });
-});
+document.getElementById('manualSelectButton')
+.onclick=()=>{
 
-navigator.geolocation.watchPosition((pos) => {
+    manualMode=!manualMode;
 
-    if (!trackingEnabled) return;
-
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
-
-    trackGeoJSON.geometry.coordinates.push([lng, lat]);
-
-    if (map.getSource('track')) {
-        map.getSource('track').setData(trackGeoJSON);
-    }
-
-});
-
-document.getElementById('toggleTrack').onclick = () => {
-
-    trackingEnabled = !trackingEnabled;
-
-    map.setLayoutProperty(
-        'track',
-        'visibility',
-        trackingEnabled ? 'visible' : 'none'
+    alert(
+        manualMode
+        ?
+        '地図をタップして目的地を設定'
+        :
+        '手動選択OFF'
     );
 };
 
-///////////////////////////////////////////////////////////
-// 3D建物
-///////////////////////////////////////////////////////////
+map.on('click',(e)=>{
 
-let building3D = false;
+    if(!manualMode)return;
 
-document.getElementById('toggle3d').onclick = () => {
+    setDestination(
+        [e.lngLat.lng,e.lngLat.lat],
+        '手動選択'
+    );
 
-    if (!building3D) {
+    manualMode=false;
+});
 
-        if (!map.getSource('openmaptiles')) {
+//////////////////////////////////////////////////////
+// 探索マッピング
+//////////////////////////////////////////////////////
 
-            map.addSource('openmaptiles', {
-                type: 'vector',
-                url: 'https://demotiles.maplibre.org/tiles/tiles.json'
+let mappingMode=false;
+
+let exploredCoordinates=[];
+
+map.on('load',()=>{
+
+    //////////////////////////////////////////////////////
+    // 探索済みライン
+    //////////////////////////////////////////////////////
+
+    map.addSource('explored',{
+        type:'geojson',
+        data:{
+            type:'Feature',
+            geometry:{
+                type:'LineString',
+                coordinates:[]
+            }
+        }
+    });
+
+    map.addLayer({
+
+        id:'explored',
+
+        type:'line',
+
+        source:'explored',
+
+        paint:{
+            'line-color':'#00ff99',
+            'line-width':5
+        }
+    });
+
+    //////////////////////////////////////////////////////
+    // 黒塗りレイヤー
+    //////////////////////////////////////////////////////
+
+    map.addSource('fog',{
+
+        type:'geojson',
+
+        data:{
+            type:'Feature',
+            geometry:{
+                type:'Polygon',
+                coordinates:[[
+                    [-180,-85],
+                    [180,-85],
+                    [180,85],
+                    [-180,85],
+                    [-180,-85]
+                ]]
+            }
+        }
+    });
+
+    map.addLayer({
+
+        id:'fog',
+
+        type:'fill',
+
+        source:'fog',
+
+        paint:{
+            'fill-color':'black',
+            'fill-opacity':0.88
+        }
+    });
+
+    map.setLayoutProperty(
+        'fog',
+        'visibility',
+        'none'
+    );
+});
+
+//////////////////////////////////////////////////////
+// 探索モード切替
+//////////////////////////////////////////////////////
+
+document.getElementById('mappingButton')
+.onclick=()=>{
+
+    mappingMode=!mappingMode;
+
+    map.setLayoutProperty(
+        'fog',
+        'visibility',
+        mappingMode
+        ?
+        'visible'
+        :
+        'none'
+    );
+
+    document.getElementById(
+        'mappingModeIndicator'
+    ).style.display=
+    mappingMode
+    ?
+    'block'
+    :
+    'none';
+};
+
+//////////////////////////////////////////////////////
+// 3D
+//////////////////////////////////////////////////////
+
+let building3D=false;
+
+document.getElementById('toggle3d')
+.onclick=()=>{
+
+    if(!building3D){
+
+        if(!map.getSource('openmaptiles')){
+
+            map.addSource('openmaptiles',{
+                type:'vector',
+                url:'https://demotiles.maplibre.org/tiles/tiles.json'
             });
 
             map.addLayer({
-                id: '3d-buildings',
-                source: 'openmaptiles',
-                'source-layer': 'building',
-                type: 'fill-extrusion',
-                minzoom: 15,
-                paint: {
-                    'fill-extrusion-color': '#aaa',
-                    'fill-extrusion-height': [
-                        'get',
-                        'render_height'
-                    ],
-                    'fill-extrusion-base': [
-                        'get',
-                        'render_min_height'
-                    ],
-                    'fill-extrusion-opacity': 0.6
+
+                id:'3d-buildings',
+
+                source:'openmaptiles',
+
+                'source-layer':'building',
+
+                type:'fill-extrusion',
+
+                minzoom:15,
+
+                paint:{
+
+                    'fill-extrusion-color':'#aaa',
+
+                    'fill-extrusion-height':
+                    ['get','render_height'],
+
+                    'fill-extrusion-base':
+                    ['get','render_min_height'],
+
+                    'fill-extrusion-opacity':0.6
                 }
             });
         }
 
-        building3D = true;
+        building3D=true;
 
-    } else {
+    }else{
 
-        if (map.getLayer('3d-buildings')) {
+        if(map.getLayer('3d-buildings')){
+
             map.removeLayer('3d-buildings');
         }
 
-        building3D = false;
+        building3D=false;
     }
 };
 
-///////////////////////////////////////////////////////////
-// iPhone HTTPS警告
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
+// HTTPS警告
+//////////////////////////////////////////////////////
 
-if (location.protocol !== 'https:') {
+if(location.protocol!=='https:'){
 
     alert(
 `iPhoneでGPSを使うにはHTTPSが必要です。
