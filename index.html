@@ -274,9 +274,28 @@ button.action{
 
 #routeStats{
 
+    position:absolute;
+
+    left:20px;
+    bottom:20px;
+
+    z-index:1000;
+
+    background:rgba(0,0,0,0.82);
+
+    color:white;
+
+    padding:12px 16px;
+
+    border-radius:16px;
+
     font-size:15px;
 
-    opacity:0.9;
+    line-height:1.6;
+
+    box-shadow:0 0 15px rgba(0,0,0,0.4);
+
+    display:none;
 }
 
 #speedLimit{
@@ -1268,6 +1287,33 @@ Math.floor(totalMinutes/60);
 const minutes=
 totalMinutes%60;
 
+///////////////////////////////////////////////////////////
+// 到着予想時刻
+///////////////////////////////////////////////////////////
+
+const now=
+new Date();
+
+const eta=
+new Date(
+    now.getTime()
+    +
+    route.duration*1000
+);
+
+const etaHour=
+eta.getHours()
+.toString()
+.padStart(2,'0');
+
+const etaMinute=
+eta.getMinutes()
+.toString()
+.padStart(2,'0');
+
+const etaText=
+`${etaHour}:${etaMinute}`;
+
 ///////////////////////////////////////////////////////////////
 // 時間文字列
 ///////////////////////////////////////////////////////////////
@@ -1294,13 +1340,15 @@ document.getElementById(
 ).innerHTML=
 
 `
-距離:
-${km} km
+距離: ${km} km
 
 <br>
 
-到着:
-${timeText}
+到着まで: ${timeText}
+
+<br>
+
+到着予定: ${etaText}
 `;
 
 `
@@ -1388,6 +1436,14 @@ ${timeText}
     document.getElementById(
         'carNaviUI'
     ).style.display='flex';
+
+    ///////////////////////////////////////////////////////////
+    // routeStats表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'routeStats'
+    ).style.display='block';
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1425,10 +1481,11 @@ function clearRoute(){
         'routeStats'
     ).innerHTML=
 
-`
-距離: -- km<br>
-到着: -- 分
-`;
+    `
+    距離: -- km<br>
+    到着まで: --時間 --分<br>
+    到着予定: --:--
+    `;
 
     currentSteps=[];
 
@@ -1443,6 +1500,15 @@ function clearRoute(){
     document.getElementById(
         'carNaviUI'
     ).style.display='none';
+
+    ///////////////////////////////////////////////////////////
+    // routeStats非表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'routeStats'
+    ).style.display='none';
+
 }
 
 ///////////////////////////////////////////////////////////////
