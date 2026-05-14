@@ -2,767 +2,509 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
-/>
+<title>OSM Browser Navi</title>
 
-<title>無料OSM GPSナビ</title>
-
-<!-- MapLibre GL JS -->
-
-<link
-  href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css"
-  rel="stylesheet"
-/>
-
-<script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+<!-- MapLibre -->
+<link href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 
 <style>
-
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-  font-family:sans-serif;
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: sans-serif;
+    background: #000;
 }
 
-body{
-  overflow:hidden;
-  background:#111;
-  color:white;
+#map {
+    width: 100%;
+    height: 100%;
 }
 
-#map{
-  width:100vw;
-  height:100vh;
+/* ハンバーガー */
+#menuButton {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    border: none;
+    background: rgba(20,20,20,0.9);
+    color: white;
+    font-size: 26px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
 }
 
-/* =======================
-UI
-======================= */
-
-.ui{
-
-  position:absolute;
-
-  top:10px;
-  left:10px;
-
-  z-index:1000;
-
-  width:calc(100% - 20px);
-  max-width:420px;
-
-  background:rgba(0,0,0,0.85);
-
-  padding:14px;
-
-  border-radius:18px;
-
-  backdrop-filter:blur(12px);
+/* サイドメニュー */
+#sidebar {
+    position: absolute;
+    top: 0;
+    left: -340px;
+    width: 320px;
+    height: 100%;
+    background: rgba(15,15,15,0.96);
+    z-index: 999;
+    transition: left 0.3s ease;
+    padding: 80px 20px 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    color: white;
+    backdrop-filter: blur(12px);
 }
 
-.title{
-  font-size:22px;
-  font-weight:bold;
-  margin-bottom:12px;
+#sidebar.open {
+    left: 0;
 }
 
-input,
-select,
-button{
-
-  width:100%;
-
-  margin-bottom:10px;
-
-  padding:12px;
-
-  border:none;
-
-  border-radius:10px;
-
-  font-size:16px;
+.sectionTitle {
+    font-size: 18px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-weight: bold;
 }
 
-button{
-  background:#0a84ff;
-  color:white;
-  font-weight:bold;
+input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    margin-bottom: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
 }
 
-button:active{
-  opacity:0.8;
+button.action {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    margin-bottom: 10px;
+    background: #2196f3;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
 }
 
-#info{
-  font-size:14px;
-  line-height:1.6;
+.infoBox {
+    background: rgba(255,255,255,0.08);
+    padding: 12px;
+    border-radius: 12px;
+    margin-top: 10px;
+    font-size: 14px;
 }
 
-/* =======================
-GPSボタン
-======================= */
-
-.gps-btn{
-
-  position:absolute;
-
-  right:10px;
-  bottom:20px;
-
-  z-index:1000;
-
-  width:60px;
-  height:60px;
-
-  border-radius:50%;
-
-  border:none;
-
-  background:#0a84ff;
-
-  color:white;
-
-  font-size:26px;
-
-  font-weight:bold;
+#gpsStatus {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
 }
 
-/* =======================
-ダークポップアップ
-======================= */
-
-.maplibregl-popup-content{
-
-  background:#222;
-  color:white;
-
-  border-radius:12px;
+.maplibregl-popup-content {
+    border-radius: 12px;
 }
-
 </style>
 </head>
+
 <body>
-
-<!-- UI -->
-
-<div class="ui">
-
-  <div class="title">
-    🚗 無料OSMナビ
-  </div>
-
-  <input
-    type="text"
-    id="destination"
-    placeholder="目的地を入力"
-  />
-
-  <select id="mode">
-
-    <option value="driving">
-      車
-    </option>
-
-    <option value="walking">
-      徒歩
-    </option>
-
-  </select>
-
-  <button onclick="startNavigation()">
-    ナビ開始
-  </button>
-
-  <button onclick="toggleFollow()">
-    GPS追尾 ON/OFF
-  </button>
-
-  <button onclick="showPOI('convenience')">
-    コンビニ
-  </button>
-
-  <button onclick="showPOI('parking')">
-    駐車場
-  </button>
-
-  <button onclick="showPOI('fuel')">
-    ガソリン
-  </button>
-
-  <button onclick="showPOI('station')">
-    駅
-  </button>
-
-  <button onclick="toggleRailway()">
-    鉄道路線
-  </button>
-
-  <div id="info">
-    GPS待機中...
-  </div>
-
-</div>
-
-<!-- GPS中央移動 -->
-
-<button
-  class="gps-btn"
-  onclick="moveToCurrentLocation()"
->
-📍
-</button>
-
-<!-- 地図 -->
 
 <div id="map"></div>
 
+<button id="menuButton">☰</button>
+
+<div id="sidebar">
+
+    <div class="sectionTitle">目的地検索</div>
+
+    <input type="text" id="destinationInput" placeholder="目的地を入力">
+
+    <button class="action" id="searchButton">
+        ルート検索
+    </button>
+
+    <button class="action" id="gpsButton">
+        現在地へ移動
+    </button>
+
+    <div class="sectionTitle">地図表示</div>
+
+    <button class="action" id="toggle3d">
+        3D建物 ON/OFF
+    </button>
+
+    <button class="action" id="toggleTrack">
+        GPS軌跡 ON/OFF
+    </button>
+
+    <div class="sectionTitle">情報</div>
+
+    <div class="infoBox">
+        地図:
+        :contentReference[oaicite:0]{index=0}
+        <br><br>
+        描画:
+        :contentReference[oaicite:1]{index=1}
+        <br><br>
+        ルート:
+        OSRM
+        <br><br>
+        検索:
+        Overpass API / Nominatim
+    </div>
+
+</div>
+
+<div id="gpsStatus">
+    GPS取得中...
+</div>
+
 <script>
 
-// =====================================
-// 状態管理
-// =====================================
-
-let currentLat = 35.0116;
-let currentLng = 135.7681;
-
-let followMode = true;
-
-let railwayVisible = false;
-
-let poiMarkers = [];
-
-// =====================================
-// 地図初期化
-// =====================================
+///////////////////////////////////////////////////////////
+// MapLibre 初期化
+///////////////////////////////////////////////////////////
 
 const map = new maplibregl.Map({
+    container: 'map',
 
-  container:'map',
+    style: {
+        version: 8,
 
-  style:
-'https://tile.openstreetmap.jp/styles/osm-bright-ja/style.json',
+        sources: {
+            osm: {
+                type: 'raster',
+                tiles: [
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution:
+                    '&copy; OpenStreetMap Contributors'
+            }
+        },
 
-  center:[
-    currentLng,
-    currentLat
-  ],
+        layers: [
+            {
+                id: 'osm',
+                type: 'raster',
+                source: 'osm'
+            }
+        ]
+    },
 
-  zoom:16
+    center: [135.7681, 35.0116], // 京都
+    zoom: 15,
+    pitch: 45,
+    bearing: 0
 });
 
-// ナビUI
+///////////////////////////////////////////////////////////
+// UI
+///////////////////////////////////////////////////////////
 
-map.addControl(
-  new maplibregl.NavigationControl()
+const sidebar = document.getElementById('sidebar');
+const menuButton = document.getElementById('menuButton');
+
+menuButton.onclick = () => {
+    sidebar.classList.toggle('open');
+};
+
+///////////////////////////////////////////////////////////
+// 現在地
+///////////////////////////////////////////////////////////
+
+let currentPosition = null;
+
+const userMarker = new maplibregl.Marker({
+    color: '#2196f3'
+});
+
+function updateGPS(position) {
+
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+
+    currentPosition = [lng, lat];
+
+    userMarker
+        .setLngLat(currentPosition)
+        .addTo(map);
+
+    map.flyTo({
+        center: currentPosition,
+        zoom: 17,
+        speed: 1.2
+    });
+
+    document.getElementById('gpsStatus').innerText =
+        `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+function gpsError(err) {
+    document.getElementById('gpsStatus').innerText =
+        'GPS取得失敗';
+}
+
+navigator.geolocation.watchPosition(
+    updateGPS,
+    gpsError,
+    {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+    }
 );
 
-// =====================================
-// 現在地マーカー
-// =====================================
+///////////////////////////////////////////////////////////
+// 現在地へ移動
+///////////////////////////////////////////////////////////
 
-const userMarker =
-new maplibregl.Marker({
+document.getElementById('gpsButton').onclick = () => {
 
-  color:'#0a84ff'
+    if (!currentPosition) return;
 
-})
+    map.flyTo({
+        center: currentPosition,
+        zoom: 17
+    });
+};
 
-.setLngLat([
-  currentLng,
-  currentLat
-])
+///////////////////////////////////////////////////////////
+// 目的地検索（Nominatim）
+///////////////////////////////////////////////////////////
 
-.addTo(map);
+let destinationMarker = null;
 
-// =====================================
-// GPS
-// =====================================
+async function searchDestination(query) {
 
-if(navigator.geolocation){
+    const url =
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
 
-  navigator.geolocation.watchPosition(
+    const response = await fetch(url);
 
-    (position)=>{
+    const data = await response.json();
 
-      currentLat =
-        position.coords.latitude;
-
-      currentLng =
-        position.coords.longitude;
-
-      // マーカー移動
-
-      userMarker.setLngLat([
-        currentLng,
-        currentLat
-      ]);
-
-      // GPS追尾
-
-      if(followMode){
-
-        map.easeTo({
-
-          center:[
-            currentLng,
-            currentLat
-          ],
-
-          zoom:17,
-
-          duration:1000
-        });
-      }
-
-      // 情報表示
-
-      document.getElementById(
-        'info'
-      ).innerHTML = `
-        🚗 GPS動作中<br>
-        緯度:${currentLat.toFixed(6)}<br>
-        経度:${currentLng.toFixed(6)}
-      `;
-    },
-
-    (error)=>{
-
-      console.error(error);
-
-      alert('GPS取得失敗');
-    },
-
-    {
-
-      enableHighAccuracy:true,
-
-      timeout:10000,
-
-      maximumAge:0
+    if (!data.length) {
+        alert('見つかりませんでした');
+        return;
     }
-  );
+
+    const result = data[0];
+
+    const lng = parseFloat(result.lon);
+    const lat = parseFloat(result.lat);
+
+    if (destinationMarker) {
+        destinationMarker.remove();
+    }
+
+    destinationMarker =
+        new maplibregl.Marker({
+            color: 'red'
+        })
+        .setLngLat([lng, lat])
+        .setPopup(
+            new maplibregl.Popup()
+            .setHTML(`<b>${result.display_name}</b>`)
+        )
+        .addTo(map);
+
+    map.flyTo({
+        center: [lng, lat],
+        zoom: 16
+    });
+
+    if (currentPosition) {
+        getRoute(currentPosition, [lng, lat]);
+    }
 }
 
-// =====================================
-// GPS追尾
-// =====================================
+///////////////////////////////////////////////////////////
+// OSRMルート
+///////////////////////////////////////////////////////////
 
-function toggleFollow(){
+async function getRoute(start, end) {
 
-  followMode = !followMode;
+    const url =
+`https://router.project-osrm.org/route/v1/driving/
+${start[0]},${start[1]};
+${end[0]},${end[1]}
+?overview=full&geometries=geojson`;
 
-  alert(
-    `GPS追尾 ${
-      followMode ? 'ON':'OFF'
-    }`
-  );
-}
+    const response = await fetch(url);
 
-// =====================================
-// 現在地移動
-// =====================================
+    const data = await response.json();
 
-function moveToCurrentLocation(){
+    const route = data.routes[0].geometry;
 
-  map.flyTo({
-
-    center:[
-      currentLng,
-      currentLat
-    ],
-
-    zoom:17
-  });
-}
-
-// =====================================
-// 音声
-// =====================================
-
-function speak(text){
-
-  const utterance =
-    new SpeechSynthesisUtterance(text);
-
-  utterance.lang = 'ja-JP';
-
-  speechSynthesis.speak(utterance);
-}
-
-// =====================================
-// ナビ開始
-// =====================================
-
-async function startNavigation(){
-
-  try{
-
-    const destination =
-      document.getElementById(
-        'destination'
-      ).value;
-
-    if(!destination){
-
-      alert('目的地入力');
-
-      return;
+    if (map.getSource('route')) {
+        map.removeLayer('route');
+        map.removeSource('route');
     }
 
-    // =====================================
-    // OSM住所検索
-    // =====================================
-
-    const geoResponse =
-      await fetch(
-`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`
-      );
-
-    const geoData =
-      await geoResponse.json();
-
-    if(geoData.length === 0){
-
-      alert('目的地なし');
-
-      return;
-    }
-
-    const destLat =
-      geoData[0].lat;
-
-    const destLng =
-      geoData[0].lon;
-
-    // =====================================
-    // 車 or 徒歩
-    // =====================================
-
-    const mode =
-      document.getElementById(
-        'mode'
-      ).value;
-
-    // =====================================
-    // OSRMルート
-    // =====================================
-
-    const routeResponse =
-      await fetch(
-`https://router.project-osrm.org/route/v1/${mode}/${currentLng},${currentLat};${destLng},${destLat}?overview=full&geometries=geojson`
-      );
-
-    const routeData =
-      await routeResponse.json();
-
-    const coordinates =
-      routeData.routes[0]
-      .geometry.coordinates;
-
-    // =====================================
-    // 既存削除
-    // =====================================
-
-    if(map.getLayer('route')){
-
-      map.removeLayer('route');
-    }
-
-    if(map.getSource('route')){
-
-      map.removeSource('route');
-    }
-
-    // =====================================
-    // ルート描画
-    // =====================================
-
-    map.addSource('route',{
-
-      type:'geojson',
-
-      data:{
-
-        type:'Feature',
-
-        geometry:{
-
-          type:'LineString',
-
-          coordinates:coordinates
+    map.addSource('route', {
+        type: 'geojson',
+        data: {
+            type: 'Feature',
+            geometry: route
         }
-      }
     });
 
     map.addLayer({
-
-      id:'route',
-
-      type:'line',
-
-      source:'route',
-
-      layout:{
-
-        'line-cap':'round',
-
-        'line-join':'round'
-      },
-
-      paint:{
-
-        'line-color':'#0a84ff',
-
-        'line-width':6
-      }
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        paint: {
+            'line-color': '#00e5ff',
+            'line-width': 6
+        }
     });
-
-    // =====================================
-    // 地図フィット
-    // =====================================
-
-    const bounds =
-      new maplibregl.LngLatBounds();
-
-    coordinates.forEach(coord=>{
-
-      bounds.extend(coord);
-    });
-
-    map.fitBounds(bounds,{
-
-      padding:50
-    });
-
-    // =====================================
-    // 距離
-    // =====================================
-
-    const distance =
-      (
-        routeData.routes[0]
-        .distance / 1000
-      ).toFixed(1);
-
-    // =====================================
-    // 時間
-    // =====================================
-
-    const time =
-      Math.round(
-        routeData.routes[0]
-        .duration / 60
-      );
-
-    // =====================================
-    // 情報表示
-    // =====================================
-
-    document.getElementById(
-      'info'
-    ).innerHTML = `
-      🚗 ナビ案内中<br>
-      距離:${distance} km<br>
-      時間:${time}分
-    `;
-
-    // =====================================
-    // 音声
-    // =====================================
-
-    speak(
-      `ルート案内を開始します。距離${distance}キロ。約${time}分です`
-    );
-
-  }catch(err){
-
-    console.error(err);
-
-    alert('ナビ失敗');
-  }
 }
 
-// =====================================
-// POI表示
-// =====================================
+document.getElementById('searchButton').onclick = () => {
 
-async function showPOI(type){
+    const query =
+        document.getElementById('destinationInput').value;
 
-  poiMarkers.forEach(
-    marker=>marker.remove()
-  );
+    if (!query) return;
 
-  poiMarkers = [];
+    searchDestination(query);
+};
 
-  let query = '';
+///////////////////////////////////////////////////////////
+// GPS軌跡
+///////////////////////////////////////////////////////////
 
-  // =========================
-  // コンビニ
-  // =========================
+let trackingEnabled = true;
 
-  if(type === 'convenience'){
+const trackGeoJSON = {
+    type: 'Feature',
+    geometry: {
+        type: 'LineString',
+        coordinates: []
+    }
+};
 
-    query =
-`
-[out:json];
-node
-(around:1000,${currentLat},${currentLng})
-[shop=convenience];
-out;
-`;
-  }
+map.on('load', () => {
 
-  // =========================
-  // 駐車場
-  // =========================
+    map.addSource('track', {
+        type: 'geojson',
+        data: trackGeoJSON
+    });
 
-  if(type === 'parking'){
+    map.addLayer({
+        id: 'track',
+        type: 'line',
+        source: 'track',
+        paint: {
+            'line-color': '#00ff99',
+            'line-width': 4
+        }
+    });
+});
 
-    query =
-`
-[out:json];
-node
-(around:1000,${currentLat},${currentLng})
-[amenity=parking];
-out;
-`;
-  }
+navigator.geolocation.watchPosition((pos) => {
 
-  // =========================
-  // ガソリン
-  // =========================
+    if (!trackingEnabled) return;
 
-  if(type === 'fuel'){
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
 
-    query =
-`
-[out:json];
-node
-(around:1000,${currentLat},${currentLng})
-[amenity=fuel];
-out;
-`;
-  }
+    trackGeoJSON.geometry.coordinates.push([lng, lat]);
 
-  // =========================
-  // 駅
-  // =========================
+    if (map.getSource('track')) {
+        map.getSource('track').setData(trackGeoJSON);
+    }
 
-  if(type === 'station'){
+});
 
-    query =
-`
-[out:json];
-node
-(around:1000,${currentLat},${currentLng})
-[railway=station];
-out;
-`;
-  }
+document.getElementById('toggleTrack').onclick = () => {
 
-  // =========================
-  // Overpass API
-  // =========================
+    trackingEnabled = !trackingEnabled;
 
-  const response =
-    await fetch(
-      'https://overpass-api.de/api/interpreter',
-      {
-        method:'POST',
-        body:query
-      }
+    map.setLayoutProperty(
+        'track',
+        'visibility',
+        trackingEnabled ? 'visible' : 'none'
     );
+};
 
-  const data =
-    await response.json();
+///////////////////////////////////////////////////////////
+// 3D建物
+///////////////////////////////////////////////////////////
 
-  data.elements.forEach(place=>{
+let building3D = false;
 
-    const marker =
-      new maplibregl.Marker({
-        color:'#ff3b30'
-      })
+document.getElementById('toggle3d').onclick = () => {
 
-      .setLngLat([
-        place.lon,
-        place.lat
-      ])
+    if (!building3D) {
 
-      .setPopup(
+        if (!map.getSource('openmaptiles')) {
 
-        new maplibregl.Popup()
+            map.addSource('openmaptiles', {
+                type: 'vector',
+                url: 'https://demotiles.maplibre.org/tiles/tiles.json'
+            });
 
-        .setHTML(`
-          <b>
-            ${place.tags.name || '施設'}
-          </b>
-        `)
-      )
+            map.addLayer({
+                id: '3d-buildings',
+                source: 'openmaptiles',
+                'source-layer': 'building',
+                type: 'fill-extrusion',
+                minzoom: 15,
+                paint: {
+                    'fill-extrusion-color': '#aaa',
+                    'fill-extrusion-height': [
+                        'get',
+                        'render_height'
+                    ],
+                    'fill-extrusion-base': [
+                        'get',
+                        'render_min_height'
+                    ],
+                    'fill-extrusion-opacity': 0.6
+                }
+            });
+        }
 
-      .addTo(map);
+        building3D = true;
 
-    poiMarkers.push(marker);
-  });
+    } else {
 
-  alert(
-    `${data.elements.length}件表示`
-  );
-}
+        if (map.getLayer('3d-buildings')) {
+            map.removeLayer('3d-buildings');
+        }
 
-// =====================================
-// 鉄道路線
-// =====================================
-
-function toggleRailway(){
-
-  if(railwayVisible){
-
-    if(map.getLayer('railway-layer')){
-
-      map.removeLayer(
-        'railway-layer'
-      );
+        building3D = false;
     }
+};
 
-    if(map.getSource('railway')){
+///////////////////////////////////////////////////////////
+// iPhone HTTPS警告
+///////////////////////////////////////////////////////////
 
-      map.removeSource(
-        'railway'
-      );
-    }
+if (location.protocol !== 'https:') {
 
-    railwayVisible = false;
+    alert(
+`iPhoneでGPSを使うにはHTTPSが必要です。
 
-    return;
-  }
-
-  map.addSource('railway',{
-
-    type:'raster',
-
-    tiles:[
-'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
-    ],
-
-    tileSize:256
-  });
-
-  map.addLayer({
-
-    id:'railway-layer',
-
-    type:'raster',
-
-    source:'railway'
-  });
-
-  railwayVisible = true;
+GitHub Pagesなどで公開してください。`
+    );
 }
 
 </script>
+
 </body>
 </html>
