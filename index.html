@@ -701,19 +701,75 @@ function updateNextInstruction(){
 
     if(!step)return;
 
-    const instruction=
-    step.maneuver.instruction;
+    ///////////////////////////////////////////////////////////
+    // maneuver modifier
+    ///////////////////////////////////////////////////////////
+
+    const modifier=
+    step.maneuver.modifier || '';
+
+    ///////////////////////////////////////////////////////////
+    // 日本語方向変換
+    ///////////////////////////////////////////////////////////
+
+    let direction='直進';
+
+    switch(modifier){
+
+        case 'right':
+            direction='右方向';
+            break;
+
+        case 'left':
+            direction='左方向';
+            break;
+
+        case 'slight right':
+            direction='斜め右方向';
+            break;
+
+        case 'slight left':
+            direction='斜め左方向';
+            break;
+
+        case 'sharp right':
+            direction='鋭く右方向';
+            break;
+
+        case 'sharp left':
+            direction='鋭く左方向';
+            break;
+
+        case 'uturn':
+            direction='Uターン';
+            break;
+
+        case 'straight':
+            direction='直進';
+            break;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 距離
+    ///////////////////////////////////////////////////////////
 
     const distance=
     Math.round(step.distance);
+
+    ///////////////////////////////////////////////////////////
+    // 表示
+    ///////////////////////////////////////////////////////////
 
     document.getElementById(
         'nextTurn'
     ).innerHTML=
 
 `
-${distance}m先<br>
-${instruction}
+${distance}m先
+
+<br>
+
+${direction}
 `;
 }
 
@@ -1047,91 +1103,6 @@ ${timeText}
     route.legs[0].steps;
 
     currentStepIndex=0;
-
-    ///////////////////////////////////////////////////////////////
-// 次案内
-///////////////////////////////////////////////////////////////
-
-function updateNextInstruction(){
-
-    if(!currentSteps.length)return;
-
-    const step=
-    currentSteps[currentStepIndex];
-
-    if(!step)return;
-
-    ///////////////////////////////////////////////////////////
-    // OSRM maneuver
-    ///////////////////////////////////////////////////////////
-
-    const modifier=
-    step.maneuver.modifier || '';
-
-    ///////////////////////////////////////////////////////////
-    // 日本語方向変換
-    ///////////////////////////////////////////////////////////
-
-    let direction='直進';
-
-    switch(modifier){
-
-        case 'right':
-            direction='右方向';
-            break;
-
-        case 'left':
-            direction='左方向';
-            break;
-
-        case 'slight right':
-            direction='斜め右方向';
-            break;
-
-        case 'slight left':
-            direction='斜め左方向';
-            break;
-
-        case 'sharp right':
-            direction='鋭く右方向';
-            break;
-
-        case 'sharp left':
-            direction='鋭く左方向';
-            break;
-
-        case 'uturn':
-            direction='Uターン';
-            break;
-
-        case 'straight':
-            direction='直進';
-            break;
-    }
-
-    ///////////////////////////////////////////////////////////
-    // 距離
-    ///////////////////////////////////////////////////////////
-
-    const distance=
-    Math.round(step.distance);
-
-    ///////////////////////////////////////////////////////////
-    // 表示
-    ///////////////////////////////////////////////////////////
-
-    document.getElementById(
-        'nextTurn'
-    ).innerHTML=
-
-`
-${distance}m先
-
-<br>
-
-${direction}
-`;
-}
 
     const routeGeoJSON={
 
