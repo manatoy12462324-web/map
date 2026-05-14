@@ -200,6 +200,17 @@ button.action{
     margin-bottom:8px;
 }
 
+#nextSubTurn{
+
+    font-size:14px;
+
+    opacity:0.75;
+
+    margin-top:6px;
+
+    margin-bottom:8px;
+}
+
 #routeStats{
 
     font-size:15px;
@@ -262,15 +273,19 @@ button.action{
 <div id="carNaviUI">
 
     <div id="nextTurn">
-        ナビ待機中
-    </div>
+    ナビ待機中
+</div>
 
-    <div id="routeStats">
+<div id="nextSubTurn">
+    次の案内: --
+</div>
 
-        距離: -- km<br>
-        到着: -- 分
+<div id="routeStats">
 
-    </div>
+    距離: -- km<br>
+    到着: --時間 --分
+
+</div>
 
 </div>
 
@@ -696,13 +711,24 @@ function updateNextInstruction(){
 
     if(!currentSteps.length)return;
 
+    ///////////////////////////////////////////////////////////
+    // 現在ステップ
+    ///////////////////////////////////////////////////////////
+
     const step=
     currentSteps[currentStepIndex];
 
     if(!step)return;
 
     ///////////////////////////////////////////////////////////
-    // maneuver modifier
+    // 次ステップ
+    ///////////////////////////////////////////////////////////
+
+    const nextStep=
+    currentSteps[currentStepIndex+1];
+
+    ///////////////////////////////////////////////////////////
+    // modifier取得
     ///////////////////////////////////////////////////////////
 
     const modifier=
@@ -712,107 +738,103 @@ function updateNextInstruction(){
     // 日本語方向変換
     ///////////////////////////////////////////////////////////
 
-    let direction='直進';
+    function convertDirection(mod){
 
-    switch(modifier){
+        switch(mod){
 
-        case 'right':
-            direction='右方向';
-            break;
+            case 'right':
+                return '右方向';
 
-        case 'left':
-            direction='左方向';
-            break;
+            case 'left':
+                return '左方向';
 
-        case 'slight right':
-            direction='斜め右方向';
-            break;
+            case 'slight right':
+                return '斜め右方向';
 
-        case 'slight left':
-            direction='斜め左方向';
-            break;
+            case 'slight left':
+                return '斜め左方向';
 
-        case 'sharp right':
-            direction='鋭く右方向';
-            break;
+            case 'sharp right':
+                return '鋭く右方向';
 
-        case 'sharp left':
-            direction='鋭く左方向';
-            break;
+            case 'sharp left':
+                return '鋭く左方向';
 
-        case 'uturn':
-            direction='Uターン';
-            break;
+            case 'uturn':
+                return 'Uターン';
 
-        case 'straight':
-            direction='直進';
-            break;
+            default:
+                return '直進';
+        }
     }
 
     ///////////////////////////////////////////////////////////
-// ナビ風 距離表示
-///////////////////////////////////////////////////////////
+    // 現在方向
+    ///////////////////////////////////////////////////////////
 
-const rawDistance=
-step.distance;
-
-let distanceText='';
-
-///////////////////////////////////////////////////////////
-// 1km以上
-///////////////////////////////////////////////////////////
-
-if(rawDistance>=1000){
-
-    distanceText=
-    `${(rawDistance/1000).toFixed(1)}km`;
-}
-
-///////////////////////////////////////////////////////////
-// 950m〜100m
-// 50m単位
-///////////////////////////////////////////////////////////
-
-else if(rawDistance>=100){
-
-    const rounded=
-    Math.round(rawDistance/50)*50;
-
-    distanceText=
-    `${rounded}m`;
-}
-
-///////////////////////////////////////////////////////////
-// 100m未満
-// 10m単位
-///////////////////////////////////////////////////////////
-
-else if(rawDistance>=10){
-
-    const rounded=
-    Math.round(rawDistance/10)*10;
-
-    distanceText=
-    `${rounded}m`;
-}
-
-///////////////////////////////////////////////////////////
-// 10m未満
-///////////////////////////////////////////////////////////
-
-else{
-
-    distanceText=
-    `${Math.round(rawDistance)}m`;
-}
+    const direction=
+    convertDirection(modifier);
 
     ///////////////////////////////////////////////////////////
-    // 表示
+    // 距離表示
+    ///////////////////////////////////////////////////////////
+
+    let distance=
+    step.distance;
+
+    let distanceText='';
+
+    ///////////////////////////////////////////////////////////
+    // 1km以上
+    ///////////////////////////////////////////////////////////
+
+    if(distance>=1000){
+
+        distanceText=
+        (distance/1000).toFixed(1)
+        +'km';
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 100m〜950m
+    ///////////////////////////////////////////////////////////
+
+    else if(distance>=100){
+
+        distanceText=
+        (Math.round(distance/50)*50)
+        +'m';
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 10m〜100m
+    ///////////////////////////////////////////////////////////
+
+    else if(distance>=10){
+
+        distanceText=
+        (Math.round(distance/10)*10)
+        +'m';
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 10m未満
+    ///////////////////////////////////////////////////////////
+
+    else{
+
+        distanceText=
+        Math.round(distance)
+        +'m';
+    }
+
+    ///////////////////////////////////////////////////////////
+    // メイン表示
     ///////////////////////////////////////////////////////////
 
     document.getElementById(
-    'nextTurn'
-).innerHTML=
+        'nextTurn'
+    ).innerHTML=
 
 `
 ${distanceText}先
@@ -821,6 +843,32 @@ ${distanceText}先
 
 ${direction}
 `;
+
+    ///////////////////////////////////////////////////////////
+    // 次の次の案内
+    ///////////////////////////////////////////////////////////
+
+    if(nextStep){
+
+        const nextDirection=
+        convertDirection(
+            nextStep.maneuver.modifier || ''
+        );
+
+        document.getElementById(
+            'nextSubTurn'
+        ).innerHTML=
+
+        `次の案内: ${nextDirection}`;
+
+    }else{
+
+        document.getElementById(
+            'nextSubTurn'
+        ).innerHTML=
+
+        '次の案内: 到着';
+    }
 }
 
 ///////////////////////////////////////////////////////////////
