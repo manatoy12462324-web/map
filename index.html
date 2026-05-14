@@ -975,18 +975,53 @@ async function startRoute(){
     const route=
     data.routes[0];
 
-    const km=
-    (route.distance/1000)
-    .toFixed(1);
+    ///////////////////////////////////////////////////////////////
+// 距離
+///////////////////////////////////////////////////////////////
 
-    const minutes=
-    Math.round(
-        route.duration/60
-    );
+const km=
+(route.distance/1000)
+.toFixed(1);
 
-    document.getElementById(
-        'routeStats'
-    ).innerHTML=
+///////////////////////////////////////////////////////////////
+// 時間
+///////////////////////////////////////////////////////////////
+
+const totalMinutes=
+Math.round(
+    route.duration/60
+);
+
+const hours=
+Math.floor(totalMinutes/60);
+
+const minutes=
+totalMinutes%60;
+
+///////////////////////////////////////////////////////////////
+// 時間文字列
+///////////////////////////////////////////////////////////////
+
+let timeText='';
+
+if(hours>0){
+
+    timeText=
+    `${hours}時間 ${minutes}分`;
+
+}else{
+
+    timeText=
+    `${minutes}分`;
+}
+
+///////////////////////////////////////////////////////////////
+// UI表示
+///////////////////////////////////////////////////////////////
+
+document.getElementById(
+    'routeStats'
+).innerHTML=
 
 `
 距離:
@@ -995,7 +1030,17 @@ ${km} km
 <br>
 
 到着:
-${minutes} 分
+${timeText}
+`;
+
+`
+距離:
+${km} km
+
+<br>
+
+到着:
+${timeText}
 `;
 
     currentSteps=
@@ -1003,7 +1048,90 @@ ${minutes} 分
 
     currentStepIndex=0;
 
-    updateNextInstruction();
+    ///////////////////////////////////////////////////////////////
+// 次案内
+///////////////////////////////////////////////////////////////
+
+function updateNextInstruction(){
+
+    if(!currentSteps.length)return;
+
+    const step=
+    currentSteps[currentStepIndex];
+
+    if(!step)return;
+
+    ///////////////////////////////////////////////////////////
+    // OSRM maneuver
+    ///////////////////////////////////////////////////////////
+
+    const modifier=
+    step.maneuver.modifier || '';
+
+    ///////////////////////////////////////////////////////////
+    // 日本語方向変換
+    ///////////////////////////////////////////////////////////
+
+    let direction='直進';
+
+    switch(modifier){
+
+        case 'right':
+            direction='右方向';
+            break;
+
+        case 'left':
+            direction='左方向';
+            break;
+
+        case 'slight right':
+            direction='斜め右方向';
+            break;
+
+        case 'slight left':
+            direction='斜め左方向';
+            break;
+
+        case 'sharp right':
+            direction='鋭く右方向';
+            break;
+
+        case 'sharp left':
+            direction='鋭く左方向';
+            break;
+
+        case 'uturn':
+            direction='Uターン';
+            break;
+
+        case 'straight':
+            direction='直進';
+            break;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 距離
+    ///////////////////////////////////////////////////////////
+
+    const distance=
+    Math.round(step.distance);
+
+    ///////////////////////////////////////////////////////////
+    // 表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'nextTurn'
+    ).innerHTML=
+
+`
+${distance}m先
+
+<br>
+
+${direction}
+`;
+}
 
     const routeGeoJSON={
 
