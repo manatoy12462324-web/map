@@ -176,6 +176,15 @@ button.action{
 
     z-index:1000;
 
+    display:flex;
+
+    gap:10px;
+
+    align-items:stretch;
+}
+
+#mainTurnBox{
+
     background:rgba(0,0,0,0.88);
 
     color:white;
@@ -184,11 +193,63 @@ button.action{
 
     border-radius:18px;
 
-    min-width:280px;
+    min-width:260px;
 
     text-align:center;
 
     box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+#subTurnBox{
+
+    background:rgba(0,0,0,0.82);
+
+    color:white;
+
+    padding:10px 14px;
+
+    border-radius:18px;
+
+    min-width:120px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    align-items:center;
+
+    box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+#subTurnTitle{
+
+    font-size:12px;
+
+    opacity:0.7;
+
+    margin-bottom:4px;
+}
+
+#nextSubTurn{
+
+    font-size:15px;
+
+    font-weight:bold;
+
+    text-align:center;
+
+    line-height:1.4;
+}
+
+#nextTurn{
+
+    font-size:24px;
+
+    font-weight:bold;
+
+    line-height:1.5;
 }
 
 #nextTurn{
@@ -272,12 +333,26 @@ button.action{
 
 <div id="carNaviUI">
 
-    <div id="nextTurn">
-    ナビ待機中
-</div>
+    <div id="mainTurnBox">
 
-<div id="nextSubTurn">
-    次の案内: --
+        <div id="nextTurn">
+            ナビ待機中
+        </div>
+
+    </div>
+
+    <div id="subTurnBox">
+
+        <div id="subTurnTitle">
+            NEXT
+        </div>
+
+        <div id="nextSubTurn">
+            --
+        </div>
+
+    </div>
+
 </div>
 
 <div id="routeStats">
@@ -855,11 +930,52 @@ ${direction}
             nextStep.maneuver.modifier || ''
         );
 
-        document.getElementById(
-            'nextSubTurn'
-        ).innerHTML=
+        ///////////////////////////////////////////////////////////
+// 次の次の距離
+///////////////////////////////////////////////////////////
 
-        `次の案内: ${nextDirection}`;
+let nextDistance=
+nextStep.distance;
+
+let nextDistanceText='';
+
+if(nextDistance>=1000){
+
+    nextDistanceText=
+    (nextDistance/1000).toFixed(1)
+    +'km';
+
+}else if(nextDistance>=100){
+
+    nextDistanceText=
+    (Math.round(nextDistance/50)*50)
+    +'m';
+
+}else if(nextDistance>=10){
+
+    nextDistanceText=
+    (Math.round(nextDistance/10)*10)
+    +'m';
+
+}else{
+
+    nextDistanceText=
+    Math.round(nextDistance)
+    +'m';
+}
+
+///////////////////////////////////////////////////////////
+// NEXT表示
+///////////////////////////////////////////////////////////
+
+document.getElementById(
+    'nextSubTurn'
+).innerHTML=
+
+`
+${nextDistanceText}<br>
+${nextDirection}
+`;
 
     }else{
 
@@ -867,7 +983,7 @@ ${direction}
             'nextSubTurn'
         ).innerHTML=
 
-        '次の案内: 到着';
+        '到着';
     }
 }
 
