@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
 <title>探索型ブラウザナビ</title>
 
@@ -226,28 +227,73 @@ const map = new maplibregl.Map({
         version:8,
 
         sources:{
+
+            ///////////////////////////////////////////////////
+            // 通常OSM
+            ///////////////////////////////////////////////////
+
             osm:{
                 type:'raster',
+
                 tiles:[
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                 ],
+
                 tileSize:256,
+
                 attribution:'© OpenStreetMap'
+            },
+
+            ///////////////////////////////////////////////////
+            // 探索済みOSM
+            ///////////////////////////////////////////////////
+
+            exploredosm:{
+                type:'raster',
+
+                tiles:[
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                ],
+
+                tileSize:256
             }
         },
 
         layers:[
+
+            ///////////////////////////////////////////////////
+            // 通常地図
+            ///////////////////////////////////////////////////
+
             {
                 id:'osm',
+
                 type:'raster',
+
                 source:'osm'
+            },
+
+            ///////////////////////////////////////////////////
+            // 探索済み地図
+            ///////////////////////////////////////////////////
+
+            {
+                id:'exploredosm',
+
+                type:'raster',
+
+                source:'exploredosm',
+
+                paint:{
+                    'raster-opacity':0
+                }
             }
         ]
     },
 
     center:[135.7681,35.0116],
     zoom:15,
-    pitch:45
+    pitch:60
 });
 
 ///////////////////////////////////////////////////////////////
@@ -282,9 +328,9 @@ new maplibregl.Marker({
 
 let gameMode=false;
 
-const TILE_SIZE=0.0003;
+const TILE_SIZE=0.00015;
 
-const STORAGE_KEY='explored_tiles_v1';
+const STORAGE_KEY='explored_tiles_v2';
 
 let exploredTiles=loadExploredTiles();
 
@@ -329,7 +375,7 @@ function getTileId(lat,lng){
 }
 
 ///////////////////////////////////////////////////////////////
-// Polygon生成
+// Polygon
 ///////////////////////////////////////////////////////////////
 
 function tileToPolygon(tileId){
@@ -385,13 +431,17 @@ function generateExploredGeoJSON(){
 }
 
 ///////////////////////////////////////////////////////////////
-// ゲームマスク更新
+// ゲーム更新
 ///////////////////////////////////////////////////////////////
 
 function updateGameMask(){
 
     const geojson=
         generateExploredGeoJSON();
+
+    ///////////////////////////////////////////////////////////
+    // 探索済み更新
+    ///////////////////////////////////////////////////////////
 
     if(map.getSource('explored-area')){
 
@@ -400,7 +450,7 @@ function updateGameMask(){
     }
 
     ///////////////////////////////////////////////////////////
-    // 地図暗転
+    // 通常地図暗転
     ///////////////////////////////////////////////////////////
 
     map.setPaintProperty(
@@ -411,18 +461,35 @@ function updateGameMask(){
 
         gameMode
         ?
-        0.08
+        0.03
         :
         1
     );
 
     ///////////////////////////////////////////////////////////
-    // 探索済み表示
+    // 探索済み地図
+    ///////////////////////////////////////////////////////////
+
+    map.setPaintProperty(
+
+        'exploredosm',
+
+        'raster-opacity',
+
+        gameMode
+        ?
+        1
+        :
+        0
+    );
+
+    ///////////////////////////////////////////////////////////
+    // 探索済みマスク
     ///////////////////////////////////////////////////////////
 
     map.setLayoutProperty(
 
-        'explored-area-fill',
+        'explored-mask',
 
         'visibility',
 
@@ -445,6 +512,9 @@ function updateGPS(position){
 
     const lng=
         position.coords.longitude;
+
+    const heading=
+        position.coords.heading || 0;
 
     currentPosition=[lng,lat];
 
@@ -470,13 +540,17 @@ function updateGPS(position){
 
     if(followMode){
 
-        map.flyTo({
+        map.easeTo({
 
             center:currentPosition,
 
+            duration:1000,
+
             zoom:17,
 
-            speed:1.2
+            pitch:65,
+
+            bearing:heading
         });
     }
 
@@ -528,7 +602,7 @@ navigator.geolocation.watchPosition(
 map.on('load',()=>{
 
     ///////////////////////////////////////////////////////////
-    // 探索済み
+    // 探索済みエリア
     ///////////////////////////////////////////////////////////
 
     map.addSource('explored-area',{
@@ -539,12 +613,12 @@ map.on('load',()=>{
     });
 
     ///////////////////////////////////////////////////////////
-    // 明るい探索済み
+    // 探索済みマスク
     ///////////////////////////////////////////////////////////
 
     map.addLayer({
 
-        id:'explored-area-fill',
+        id:'explored-mask',
 
         type:'fill',
 
@@ -552,9 +626,17 @@ map.on('load',()=>{
 
         paint:{
 
-            'fill-color':'white',
+            ///////////////////////////////////////////////////
+            // 完全透明
+            ///////////////////////////////////////////////////
 
-            'fill-opacity':0.92,
+            'fill-color':'rgba(255,255,255,0)',
+
+            'fill-opacity':0,
+
+            ///////////////////////////////////////////////////
+            // 枠線
+            ///////////////////////////////////////////////////
 
             'fill-outline-color':'#00ff99'
         }
@@ -565,17 +647,14 @@ map.on('load',()=>{
     ///////////////////////////////////////////////////////////
 
     map.setLayoutProperty(
-
-        'explored-area-fill',
-
+        'explored-mask',
         'visibility',
-
         'none'
     );
 });
 
 ///////////////////////////////////////////////////////////////
-// GPS追従ボタン
+// GPS追従
 ///////////////////////////////////////////////////////////////
 
 document.getElementById('followButton')
@@ -595,7 +674,7 @@ document.getElementById('followButton')
 };
 
 ///////////////////////////////////////////////////////////////
-// 現在地移動
+// 現在地
 ///////////////////////////////////////////////////////////////
 
 document.getElementById('gpsButton')
@@ -606,7 +685,6 @@ document.getElementById('gpsButton')
     map.flyTo({
 
         center:currentPosition,
-
         zoom:17
     });
 };
@@ -787,7 +865,7 @@ document.getElementById('searchButton')
 };
 
 ///////////////////////////////////////////////////////////////
-// ルート消去
+// ルート削除
 ///////////////////////////////////////////////////////////////
 
 document.getElementById('clearRouteButton')
@@ -825,7 +903,7 @@ document.getElementById('manualSelectButton')
     alert(
         manualMode
         ?
-        '地図をタップして目的地を設定'
+        '地図をタップして目的地設定'
         :
         '手動選択OFF'
     );
