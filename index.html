@@ -15,14 +15,14 @@ rel="stylesheet"
 
 <style>
 
-html, body{
+html,body{
     margin:0;
     padding:0;
     width:100%;
     height:100%;
     overflow:hidden;
-    background:#000;
     font-family:sans-serif;
+    background:black;
 }
 
 #map{
@@ -31,10 +31,14 @@ html, body{
 }
 
 /* ハンバーガー */
+
 #menuButton{
+
     position:absolute;
+
     top:15px;
     left:15px;
+
     z-index:1000;
 
     width:55px;
@@ -44,19 +48,22 @@ html, body{
     border-radius:16px;
 
     background:rgba(20,20,20,0.9);
+
     color:white;
 
     font-size:28px;
 
-    backdrop-filter:blur(10px);
-
     cursor:pointer;
+
+    backdrop-filter:blur(10px);
 }
 
 /* サイドバー */
+
 #sidebar{
 
     position:absolute;
+
     top:0;
     left:-340px;
 
@@ -85,9 +92,12 @@ html, body{
 }
 
 .title{
+
+    font-size:18px;
+
     margin-top:20px;
     margin-bottom:10px;
-    font-size:18px;
+
     font-weight:bold;
 }
 
@@ -102,9 +112,9 @@ input{
 
     margin-bottom:10px;
 
-    font-size:16px;
-
     box-sizing:border-box;
+
+    font-size:16px;
 }
 
 button.action{
@@ -145,26 +155,6 @@ button.action{
     border-radius:12px;
 }
 
-#mappingModeIndicator{
-
-    position:absolute;
-
-    top:15px;
-    right:15px;
-
-    z-index:1000;
-
-    background:rgba(0,0,0,0.7);
-
-    color:#00ff99;
-
-    padding:10px 14px;
-
-    border-radius:12px;
-
-    display:none;
-}
-
 </style>
 </head>
 
@@ -202,16 +192,14 @@ button.action{
         現在地へ移動
     </button>
 
-    <div class="title">探索マップ</div>
+    <div class="title">探索ゲーム</div>
 
-    <button class="action" id="mappingButton">
-        未探索エリア黒塗り ON/OFF
+    <button class="action" id="gameModeButton">
+        ゲームモード OFF
     </button>
 
-    <div class="title">3D</div>
-
-    <button class="action" id="toggle3d">
-        3D建物 ON/OFF
+    <button class="action" id="resetExploreButton">
+        探索データ削除
     </button>
 
 </div>
@@ -220,15 +208,11 @@ button.action{
 GPS取得中...
 </div>
 
-<div id="mappingModeIndicator">
-探索モード ON
-</div>
-
 <script>
 
-//////////////////////////////////////////////////////
-// 地図
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
+// MapLibre
+///////////////////////////////////////////////////////////////
 
 const map = new maplibregl.Map({
 
@@ -258,13 +242,13 @@ const map = new maplibregl.Map({
     },
 
     center:[135.7681,35.0116],
-    zoom:16,
+    zoom:15,
     pitch:45
 });
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // UI
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 const sidebar =
 document.getElementById('sidebar');
@@ -275,9 +259,9 @@ document.getElementById('menuButton')
     sidebar.classList.toggle('open');
 };
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // GPS
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 let currentPosition=null;
 
@@ -286,10 +270,164 @@ new maplibregl.Marker({
     color:'#00aaff'
 });
 
-function gpsSuccess(pos){
+///////////////////////////////////////////////////////////////
+// ゲームモード
+///////////////////////////////////////////////////////////////
 
-    const lat=pos.coords.latitude;
-    const lng=pos.coords.longitude;
+let gameMode = false;
+
+const TILE_SIZE = 0.001;
+
+const STORAGE_KEY = 'explored_tiles_v1';
+
+let exploredTiles = loadExploredTiles();
+
+///////////////////////////////////////////////////////////////
+// localStorage読み込み
+///////////////////////////////////////////////////////////////
+
+function loadExploredTiles(){
+
+    const saved =
+        localStorage.getItem(STORAGE_KEY);
+
+    if(saved){
+
+        return JSON.parse(saved);
+    }
+
+    return {};
+}
+
+///////////////////////////////////////////////////////////////
+// 保存
+///////////////////////////////////////////////////////////////
+
+function saveExploredTiles(){
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(exploredTiles)
+    );
+}
+
+///////////////////////////////////////////////////////////////
+// タイルID
+///////////////////////////////////////////////////////////////
+
+function getTileId(lat,lng){
+
+    const x =
+        Math.floor(lng / TILE_SIZE);
+
+    const y =
+        Math.floor(lat / TILE_SIZE);
+
+    return `${x}_${y}`;
+}
+
+///////////////////////////////////////////////////////////////
+// Polygon生成
+///////////////////////////////////////////////////////////////
+
+function tileToPolygon(tileId){
+
+    const split = tileId.split('_');
+
+    const x = parseInt(split[0]);
+    const y = parseInt(split[1]);
+
+    const lng = x * TILE_SIZE;
+    const lat = y * TILE_SIZE;
+
+    return [[
+
+        [lng,lat],
+        [lng + TILE_SIZE,lat],
+        [lng + TILE_SIZE,lat + TILE_SIZE],
+        [lng,lat + TILE_SIZE],
+        [lng,lat]
+
+    ]];
+}
+
+///////////////////////////////////////////////////////////////
+// GeoJSON生成
+///////////////////////////////////////////////////////////////
+
+function generateExploredGeoJSON(){
+
+    const features=[];
+
+    for(const tileId in exploredTiles){
+
+        features.push({
+
+            type:'Feature',
+
+            geometry:{
+                type:'Polygon',
+                coordinates:
+                    tileToPolygon(tileId)
+            }
+        });
+    }
+
+    return {
+
+        type:'FeatureCollection',
+
+        features:features
+    };
+}
+
+///////////////////////////////////////////////////////////////
+// マスク更新
+///////////////////////////////////////////////////////////////
+
+function updateGameMask(){
+
+    const geojson =
+        generateExploredGeoJSON();
+
+    if(map.getSource('explored-area')){
+
+        map.getSource('explored-area')
+        .setData(geojson);
+    }
+
+    map.setLayoutProperty(
+        'dark-mask',
+        'visibility',
+        gameMode
+        ?
+        'visible'
+        :
+        'none'
+    );
+
+    map.setLayoutProperty(
+        'explored-area-fill',
+        'visibility',
+        gameMode
+        ?
+        'visible'
+        :
+        'none'
+    );
+}
+
+///////////////////////////////////////////////////////////////
+// GPS更新
+///////////////////////////////////////////////////////////////
+
+function updateGPS(position){
+
+    const lat =
+        position.coords.latitude;
+
+    const lng =
+        position.coords.longitude;
 
     currentPosition=[lng,lat];
 
@@ -301,51 +439,46 @@ function gpsSuccess(pos){
     .innerText=
     `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
-    if(autoCenter){
+    ///////////////////////////////////////////////////////////
+    // 探索記録
+    ///////////////////////////////////////////////////////////
 
-        map.flyTo({
-            center:currentPosition,
-            zoom:17,
-            speed:1.2
-        });
+    const tileId =
+        getTileId(lat,lng);
 
-        autoCenter=false;
-    }
+    if(!exploredTiles[tileId]){
 
-    //////////////////////////////////////////////////////
-    // 探索済み追加
-    //////////////////////////////////////////////////////
+        exploredTiles[tileId]=true;
 
-    exploredCoordinates.push([lng,lat]);
+        saveExploredTiles();
 
-    if(map.getSource('explored')){
-
-        map.getSource('explored')
-        .setData({
-            type:'Feature',
-            geometry:{
-                type:'LineString',
-                coordinates:exploredCoordinates
-            }
-        });
+        updateGameMask();
     }
 }
 
 navigator.geolocation.watchPosition(
-    gpsSuccess,
-    err=>console.log(err),
-    {
-        enableHighAccuracy:true,
-        maximumAge:0,
-        timeout:10000
-    }
-);
 
-//////////////////////////////////////////////////////
+(position)=>{
+
+    updateGPS(position);
+
+},
+
+(err)=>{
+
+    console.log(err);
+
+},
+
+{
+    enableHighAccuracy:true,
+    maximumAge:0,
+    timeout:10000
+});
+
+///////////////////////////////////////////////////////////////
 // 現在地移動
-//////////////////////////////////////////////////////
-
-let autoCenter=true;
+///////////////////////////////////////////////////////////////
 
 document.getElementById('gpsButton')
 .onclick=()=>{
@@ -353,14 +486,142 @@ document.getElementById('gpsButton')
     if(!currentPosition)return;
 
     map.flyTo({
+
         center:currentPosition,
         zoom:17
     });
 };
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
+// 地図ロード
+///////////////////////////////////////////////////////////////
+
+map.on('load',()=>{
+
+    ///////////////////////////////////////////////////////////
+    // 黒マスク
+    ///////////////////////////////////////////////////////////
+
+    map.addSource('dark-mask',{
+
+        type:'geojson',
+
+        data:{
+            type:'Feature',
+            geometry:{
+                type:'Polygon',
+                coordinates:[[
+                    [-180,-85],
+                    [180,-85],
+                    [180,85],
+                    [-180,85],
+                    [-180,-85]
+                ]]
+            }
+        }
+    });
+
+    map.addLayer({
+
+        id:'dark-mask',
+
+        type:'fill',
+
+        source:'dark-mask',
+
+        paint:{
+            'fill-color':'black',
+            'fill-opacity':0.96
+        }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // 探索済み
+    ///////////////////////////////////////////////////////////
+
+    map.addSource('explored-area',{
+
+        type:'geojson',
+
+        data:generateExploredGeoJSON()
+    });
+
+    map.addLayer({
+
+        id:'explored-area-fill',
+
+        type:'fill',
+
+        source:'explored-area',
+
+        paint:{
+            'fill-color':'rgba(0,0,0,0)',
+            'fill-outline-color':'#00ff99'
+        }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // 初期非表示
+    ///////////////////////////////////////////////////////////
+
+    map.setLayoutProperty(
+        'dark-mask',
+        'visibility',
+        'none'
+    );
+
+    map.setLayoutProperty(
+        'explored-area-fill',
+        'visibility',
+        'none'
+    );
+});
+
+///////////////////////////////////////////////////////////////
+// ゲームモード
+///////////////////////////////////////////////////////////////
+
+document.getElementById('gameModeButton')
+.onclick=()=>{
+
+    gameMode=!gameMode;
+
+    updateGameMask();
+
+    document.getElementById(
+        'gameModeButton'
+    ).innerText=
+    gameMode
+    ?
+    'ゲームモード ON'
+    :
+    'ゲームモード OFF';
+};
+
+///////////////////////////////////////////////////////////////
+// 探索削除
+///////////////////////////////////////////////////////////////
+
+document.getElementById('resetExploreButton')
+.onclick=()=>{
+
+    const ok =
+    confirm(
+        '探索データを削除しますか？'
+    );
+
+    if(!ok)return;
+
+    exploredTiles={};
+
+    saveExploredTiles();
+
+    updateGameMask();
+};
+
+///////////////////////////////////////////////////////////////
 // 目的地検索
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 let destinationMarker=null;
 
@@ -369,9 +630,11 @@ async function searchDestination(query){
     const url=
 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
 
-    const response=await fetch(url);
+    const response=
+        await fetch(url);
 
-    const data=await response.json();
+    const data=
+        await response.json();
 
     if(!data.length){
 
@@ -384,12 +647,15 @@ async function searchDestination(query){
     const lng=parseFloat(result.lon);
     const lat=parseFloat(result.lat);
 
-    setDestination([lng,lat],result.display_name);
+    setDestination(
+        [lng,lat],
+        result.display_name
+    );
 }
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // 目的地設定
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 async function setDestination(coord,name='目的地'){
 
@@ -420,20 +686,23 @@ async function setDestination(coord,name='目的地'){
     }
 }
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // ルート
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 async function getRoute(start,end){
 
     const url=
 `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
 
-    const response=await fetch(url);
+    const response=
+        await fetch(url);
 
-    const data=await response.json();
+    const data=
+        await response.json();
 
-    const route=data.routes[0].geometry;
+    const route=
+        data.routes[0].geometry;
 
     if(map.getSource('route')){
 
@@ -442,7 +711,9 @@ async function getRoute(start,end){
     }
 
     map.addSource('route',{
+
         type:'geojson',
+
         data:{
             type:'Feature',
             geometry:route
@@ -450,9 +721,13 @@ async function getRoute(start,end){
     });
 
     map.addLayer({
+
         id:'route',
+
         type:'line',
+
         source:'route',
+
         paint:{
             'line-color':'#00ffff',
             'line-width':6
@@ -460,9 +735,9 @@ async function getRoute(start,end){
     });
 }
 
-//////////////////////////////////////////////////////
-// 検索ボタン
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
+// 検索
+///////////////////////////////////////////////////////////////
 
 document.getElementById('searchButton')
 .onclick=()=>{
@@ -476,9 +751,9 @@ document.getElementById('searchButton')
     searchDestination(q);
 };
 
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // ルート消去
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 document.getElementById('clearRouteButton')
 .onclick=()=>{
@@ -486,6 +761,7 @@ document.getElementById('clearRouteButton')
     if(destinationMarker){
 
         destinationMarker.remove();
+
         destinationMarker=null;
     }
 
@@ -500,9 +776,9 @@ document.getElementById('clearRouteButton')
     }
 };
 
-//////////////////////////////////////////////////////
-// 手動目的地選択
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
+// 手動目的地
+///////////////////////////////////////////////////////////////
 
 let manualMode=false;
 
@@ -532,179 +808,9 @@ map.on('click',(e)=>{
     manualMode=false;
 });
 
-//////////////////////////////////////////////////////
-// 探索マッピング
-//////////////////////////////////////////////////////
-
-let mappingMode=false;
-
-let exploredCoordinates=[];
-
-map.on('load',()=>{
-
-    //////////////////////////////////////////////////////
-    // 探索済みライン
-    //////////////////////////////////////////////////////
-
-    map.addSource('explored',{
-        type:'geojson',
-        data:{
-            type:'Feature',
-            geometry:{
-                type:'LineString',
-                coordinates:[]
-            }
-        }
-    });
-
-    map.addLayer({
-
-        id:'explored',
-
-        type:'line',
-
-        source:'explored',
-
-        paint:{
-            'line-color':'#00ff99',
-            'line-width':5
-        }
-    });
-
-    //////////////////////////////////////////////////////
-    // 黒塗りレイヤー
-    //////////////////////////////////////////////////////
-
-    map.addSource('fog',{
-
-        type:'geojson',
-
-        data:{
-            type:'Feature',
-            geometry:{
-                type:'Polygon',
-                coordinates:[[
-                    [-180,-85],
-                    [180,-85],
-                    [180,85],
-                    [-180,85],
-                    [-180,-85]
-                ]]
-            }
-        }
-    });
-
-    map.addLayer({
-
-        id:'fog',
-
-        type:'fill',
-
-        source:'fog',
-
-        paint:{
-            'fill-color':'black',
-            'fill-opacity':0.88
-        }
-    });
-
-    map.setLayoutProperty(
-        'fog',
-        'visibility',
-        'none'
-    );
-});
-
-//////////////////////////////////////////////////////
-// 探索モード切替
-//////////////////////////////////////////////////////
-
-document.getElementById('mappingButton')
-.onclick=()=>{
-
-    mappingMode=!mappingMode;
-
-    map.setLayoutProperty(
-        'fog',
-        'visibility',
-        mappingMode
-        ?
-        'visible'
-        :
-        'none'
-    );
-
-    document.getElementById(
-        'mappingModeIndicator'
-    ).style.display=
-    mappingMode
-    ?
-    'block'
-    :
-    'none';
-};
-
-//////////////////////////////////////////////////////
-// 3D
-//////////////////////////////////////////////////////
-
-let building3D=false;
-
-document.getElementById('toggle3d')
-.onclick=()=>{
-
-    if(!building3D){
-
-        if(!map.getSource('openmaptiles')){
-
-            map.addSource('openmaptiles',{
-                type:'vector',
-                url:'https://demotiles.maplibre.org/tiles/tiles.json'
-            });
-
-            map.addLayer({
-
-                id:'3d-buildings',
-
-                source:'openmaptiles',
-
-                'source-layer':'building',
-
-                type:'fill-extrusion',
-
-                minzoom:15,
-
-                paint:{
-
-                    'fill-extrusion-color':'#aaa',
-
-                    'fill-extrusion-height':
-                    ['get','render_height'],
-
-                    'fill-extrusion-base':
-                    ['get','render_min_height'],
-
-                    'fill-extrusion-opacity':0.6
-                }
-            });
-        }
-
-        building3D=true;
-
-    }else{
-
-        if(map.getLayer('3d-buildings')){
-
-            map.removeLayer('3d-buildings');
-        }
-
-        building3D=false;
-    }
-};
-
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 // HTTPS警告
-//////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////
 
 if(location.protocol!=='https:'){
 
