@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
-<title>探索型 OSM ナビ</title>
+<title>探索型ブラウザナビ</title>
 
 <link
 href="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.css"
@@ -47,7 +47,7 @@ html,body{
     border:none;
     border-radius:16px;
 
-    background:rgba(20,20,20,0.9);
+    background:rgba(20,20,20,0.92);
 
     color:white;
 
@@ -192,6 +192,10 @@ button.action{
         現在地へ移動
     </button>
 
+    <button class="action" id="followButton">
+        GPS追従 ON
+    </button>
+
     <div class="title">探索ゲーム</div>
 
     <button class="action" id="gameModeButton">
@@ -211,7 +215,7 @@ GPS取得中...
 <script>
 
 ///////////////////////////////////////////////////////////////
-// MapLibre
+// 地図
 ///////////////////////////////////////////////////////////////
 
 const map = new maplibregl.Map({
@@ -265,6 +269,8 @@ document.getElementById('menuButton')
 
 let currentPosition=null;
 
+let followMode=true;
+
 const userMarker=
 new maplibregl.Marker({
     color:'#00aaff'
@@ -274,21 +280,21 @@ new maplibregl.Marker({
 // ゲームモード
 ///////////////////////////////////////////////////////////////
 
-let gameMode = false;
+let gameMode=false;
 
-const TILE_SIZE = 0.0003;
+const TILE_SIZE=0.0003;
 
-const STORAGE_KEY = 'explored_tiles_v1';
+const STORAGE_KEY='explored_tiles_v1';
 
-let exploredTiles = loadExploredTiles();
+let exploredTiles=loadExploredTiles();
 
 ///////////////////////////////////////////////////////////////
-// localStorage読み込み
+// 保存読み込み
 ///////////////////////////////////////////////////////////////
 
 function loadExploredTiles(){
 
-    const saved =
+    const saved=
         localStorage.getItem(STORAGE_KEY);
 
     if(saved){
@@ -298,10 +304,6 @@ function loadExploredTiles(){
 
     return {};
 }
-
-///////////////////////////////////////////////////////////////
-// 保存
-///////////////////////////////////////////////////////////////
 
 function saveExploredTiles(){
 
@@ -317,11 +319,11 @@ function saveExploredTiles(){
 
 function getTileId(lat,lng){
 
-    const x =
-        Math.floor(lng / TILE_SIZE);
+    const x=
+        Math.floor(lng/TILE_SIZE);
 
-    const y =
-        Math.floor(lat / TILE_SIZE);
+    const y=
+        Math.floor(lat/TILE_SIZE);
 
     return `${x}_${y}`;
 }
@@ -332,27 +334,28 @@ function getTileId(lat,lng){
 
 function tileToPolygon(tileId){
 
-    const split = tileId.split('_');
+    const split=
+        tileId.split('_');
 
-    const x = parseInt(split[0]);
-    const y = parseInt(split[1]);
+    const x=parseInt(split[0]);
+    const y=parseInt(split[1]);
 
-    const lng = x * TILE_SIZE;
-    const lat = y * TILE_SIZE;
+    const lng=x*TILE_SIZE;
+    const lat=y*TILE_SIZE;
 
     return [[
 
         [lng,lat],
-        [lng + TILE_SIZE,lat],
-        [lng + TILE_SIZE,lat + TILE_SIZE],
-        [lng,lat + TILE_SIZE],
+        [lng+TILE_SIZE,lat],
+        [lng+TILE_SIZE,lat+TILE_SIZE],
+        [lng,lat+TILE_SIZE],
         [lng,lat]
 
     ]];
 }
 
 ///////////////////////////////////////////////////////////////
-// GeoJSON生成
+// GeoJSON
 ///////////////////////////////////////////////////////////////
 
 function generateExploredGeoJSON(){
@@ -382,12 +385,12 @@ function generateExploredGeoJSON(){
 }
 
 ///////////////////////////////////////////////////////////////
-// マスク更新
+// ゲームマスク更新
 ///////////////////////////////////////////////////////////////
 
 function updateGameMask(){
 
-    const geojson =
+    const geojson=
         generateExploredGeoJSON();
 
     if(map.getSource('explored-area')){
@@ -396,19 +399,33 @@ function updateGameMask(){
         .setData(geojson);
     }
 
-    map.setLayoutProperty(
-        'dark-mask',
-        'visibility',
+    ///////////////////////////////////////////////////////////
+    // 地図暗転
+    ///////////////////////////////////////////////////////////
+
+    map.setPaintProperty(
+
+        'osm',
+
+        'raster-opacity',
+
         gameMode
         ?
-        'visible'
+        0.08
         :
-        'none'
+        1
     );
 
+    ///////////////////////////////////////////////////////////
+    // 探索済み表示
+    ///////////////////////////////////////////////////////////
+
     map.setLayoutProperty(
+
         'explored-area-fill',
+
         'visibility',
+
         gameMode
         ?
         'visible'
@@ -423,27 +440,51 @@ function updateGameMask(){
 
 function updateGPS(position){
 
-    const lat =
+    const lat=
         position.coords.latitude;
 
-    const lng =
+    const lng=
         position.coords.longitude;
 
     currentPosition=[lng,lat];
 
+    ///////////////////////////////////////////////////////////
+    // マーカー
+    ///////////////////////////////////////////////////////////
+
     userMarker
     .setLngLat(currentPosition)
     .addTo(map);
+
+    ///////////////////////////////////////////////////////////
+    // GPS表示
+    ///////////////////////////////////////////////////////////
 
     document.getElementById('gpsInfo')
     .innerText=
     `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
     ///////////////////////////////////////////////////////////
+    // GPS追従
+    ///////////////////////////////////////////////////////////
+
+    if(followMode){
+
+        map.flyTo({
+
+            center:currentPosition,
+
+            zoom:17,
+
+            speed:1.2
+        });
+    }
+
+    ///////////////////////////////////////////////////////////
     // 探索記録
     ///////////////////////////////////////////////////////////
 
-    const tileId =
+    const tileId=
         getTileId(lat,lng);
 
     if(!exploredTiles[tileId]){
@@ -455,6 +496,10 @@ function updateGPS(position){
         updateGameMask();
     }
 }
+
+///////////////////////////////////////////////////////////////
+// GPS開始
+///////////////////////////////////////////////////////////////
 
 navigator.geolocation.watchPosition(
 
@@ -477,63 +522,10 @@ navigator.geolocation.watchPosition(
 });
 
 ///////////////////////////////////////////////////////////////
-// 現在地移動
-///////////////////////////////////////////////////////////////
-
-document.getElementById('gpsButton')
-.onclick=()=>{
-
-    if(!currentPosition)return;
-
-    map.flyTo({
-
-        center:currentPosition,
-        zoom:17
-    });
-};
-
-///////////////////////////////////////////////////////////////
 // 地図ロード
 ///////////////////////////////////////////////////////////////
 
 map.on('load',()=>{
-
-    ///////////////////////////////////////////////////////////
-    // 黒マスク
-    ///////////////////////////////////////////////////////////
-
-    map.addSource('dark-mask',{
-
-        type:'geojson',
-
-        data:{
-            type:'Feature',
-            geometry:{
-                type:'Polygon',
-                coordinates:[[
-                    [-180,-85],
-                    [180,-85],
-                    [180,85],
-                    [-180,85],
-                    [-180,-85]
-                ]]
-            }
-        }
-    });
-
-    map.addLayer({
-
-        id:'dark-mask',
-
-        type:'fill',
-
-        source:'dark-mask',
-
-        paint:{
-            'fill-color':'black',
-            'fill-opacity':0.90
-        }
-    });
 
     ///////////////////////////////////////////////////////////
     // 探索済み
@@ -546,34 +538,26 @@ map.on('load',()=>{
         data:generateExploredGeoJSON()
     });
 
+    ///////////////////////////////////////////////////////////
+    // 明るい探索済み
+    ///////////////////////////////////////////////////////////
+
     map.addLayer({
 
-      id:'explored-area-fill',
+        id:'explored-area-fill',
 
-      type:'fill',
+        type:'fill',
 
-      source:'explored-area',
+        source:'explored-area',
 
-      paint:{
+        paint:{
 
-        ///////////////////////////////////////////////////////
-        // タイル内部を透明化
-        ///////////////////////////////////////////////////////
+            'fill-color':'white',
 
-        'fill-color':'rgba(255,255,255,1)',
+            'fill-opacity':0.92,
 
-        ///////////////////////////////////////////////////////
-        // 完全透明
-        ///////////////////////////////////////////////////////
-
-        'fill-opacity':0,
-
-        ///////////////////////////////////////////////////////
-        // 枠線
-        ///////////////////////////////////////////////////////
-
-        'fill-outline-color':'#00ff99'
-      }
+            'fill-outline-color':'#00ff99'
+        }
     });
 
     ///////////////////////////////////////////////////////////
@@ -581,17 +565,51 @@ map.on('load',()=>{
     ///////////////////////////////////////////////////////////
 
     map.setLayoutProperty(
-        'dark-mask',
-        'visibility',
-        'none'
-    );
 
-    map.setLayoutProperty(
         'explored-area-fill',
+
         'visibility',
+
         'none'
     );
 });
+
+///////////////////////////////////////////////////////////////
+// GPS追従ボタン
+///////////////////////////////////////////////////////////////
+
+document.getElementById('followButton')
+.onclick=()=>{
+
+    followMode=!followMode;
+
+    document.getElementById(
+        'followButton'
+    ).innerText=
+
+    followMode
+    ?
+    'GPS追従 ON'
+    :
+    'GPS追従 OFF';
+};
+
+///////////////////////////////////////////////////////////////
+// 現在地移動
+///////////////////////////////////////////////////////////////
+
+document.getElementById('gpsButton')
+.onclick=()=>{
+
+    if(!currentPosition)return;
+
+    map.flyTo({
+
+        center:currentPosition,
+
+        zoom:17
+    });
+};
 
 ///////////////////////////////////////////////////////////////
 // ゲームモード
@@ -607,6 +625,7 @@ document.getElementById('gameModeButton')
     document.getElementById(
         'gameModeButton'
     ).innerText=
+
     gameMode
     ?
     'ゲームモード ON'
@@ -621,7 +640,7 @@ document.getElementById('gameModeButton')
 document.getElementById('resetExploreButton')
 .onclick=()=>{
 
-    const ok =
+    const ok=
     confirm(
         '探索データを削除しますか？'
     );
