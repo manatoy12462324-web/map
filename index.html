@@ -536,6 +536,10 @@ let avoidToll=false;
 
 let friendMarker=null;
 
+let gpsWatchId=null;
+
+let lastGPSUpdate=0;
+
 ///////////////////////////////////////////////////////////////
 // 探索ゲーム
 ///////////////////////////////////////////////////////////////
@@ -1122,28 +1126,35 @@ function updateGPS(position){
 
     if(followMode){
 
-        map.easeTo({
+       if(isWalking){
 
-            center:currentPosition,
+    map.jumpTo({
 
-            zoom:map.getZoom(),
+        center:currentPosition,
 
-            pitch:
-            topView
-            ?
-            0
-            :
-            60,
+        zoom:16,
 
-            bearing:
-            northUp
-            ?
-            0
-            :
-            heading,
+        bearing:0
+    });
 
-            duration:1000
-        });
+}else{
+
+    map.easeTo({
+
+        center:currentPosition,
+
+        zoom:map.getZoom(),
+
+        bearing:
+        northUp
+        ?
+        0
+        :
+        heading,
+
+        duration:1000
+    });
+}
     }
 
     updateSpeedLimit();
@@ -1165,17 +1176,103 @@ function updateGPS(position){
     }
 }
 
+function startGPSWatch(){
+
+    ///////////////////////////////////////////////////////////
+    // 既存停止
+    ///////////////////////////////////////////////////////////
+
+    if(gpsWatchId!==null){
+
+        navigator.geolocation.clearWatch(
+            gpsWatchId
+        );
+    }
+
+    ///////////////////////////////////////////////////////////
+    // モード別設定
+    ///////////////////////////////////////////////////////////
+
+    const isWalking =
+    navigationMode==='walking';
+
+    ///////////////////////////////////////////////////////////
+    // GPS設定
+    ///////////////////////////////////////////////////////////
+
+    const options={
+
+        enableHighAccuracy:
+        !isWalking,
+
+        maximumAge:
+        isWalking
+        ?
+        5000
+        :
+        0,
+
+        timeout:
+        isWalking
+        ?
+        20000
+        :
+        10000
+    };
+
+    ///////////////////////////////////////////////////////////
+    // 更新間隔制御
+    ///////////////////////////////////////////////////////////
+
+    const minUpdateInterval=
+    isWalking
+    ?
+    7000
+    :
+    500;
+
+    ///////////////////////////////////////////////////////////
+    // watch開始
+    ///////////////////////////////////////////////////////////
+
+    gpsWatchId=
+    
+
+        (position)=>{
+
+            const now=Date.now();
+
+            ///////////////////////////////////////////////////
+            // 徒歩モードは更新抑制
+            ///////////////////////////////////////////////////
+
+            if(
+                now-lastGPSUpdate
+                <
+                minUpdateInterval
+            ){
+                return;
+            }
+
+            lastGPSUpdate=now;
+
+            updateGPS(position);
+        },
+
+        (err)=>{
+
+            console.log(err);
+        },
+
+        options
+    ;
+}
+
 ///////////////////////////////////////////////////////////////
 // GPS開始
 ///////////////////////////////////////////////////////////////
 
-navigator.geolocation.watchPosition(
-
-(position)=>{
-
-    updateGPS(position);
-
-},
+startGPSWatch();
 
 (err)=>{
 
@@ -1187,7 +1284,7 @@ navigator.geolocation.watchPosition(
     enableHighAccuracy:true,
     maximumAge:0,
     timeout:10000
-});
+};
 
 ///////////////////////////////////////////////////////////////
 // 目的地マーカー
@@ -1829,6 +1926,8 @@ document.getElementById(
     '車モード'
     :
     '徒歩モード';
+
+    startGPSWatch();
 };
 
 document.getElementById(
