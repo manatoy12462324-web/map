@@ -17,6 +17,8 @@ rel="stylesheet"
 
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
 <style>
 
 html,body{
@@ -540,6 +542,10 @@ let gpsWatchId=null;
 
 let lastGPSUpdate=0;
 
+let lastNextInstructionUpdate=0;
+
+let lastGameMaskUpdate=0;
+
 ///////////////////////////////////////////////////////////////
 // 探索ゲーム
 ///////////////////////////////////////////////////////////////
@@ -649,100 +655,6 @@ function tileToPolygon(tileId){
 ///////////////////////////////////////////////////////////////
 // マスク
 ///////////////////////////////////////////////////////////////
-
-function generateMergedMaskGeoJSON(){
-
-    const world=[
-
-        [-180,-85],
-        [180,-85],
-        [180,85],
-        [-180,85],
-        [-180,-85]
-    ];
-
-    const polygons=[];
-
-    for(const tileId in exploredTiles){
-
-        polygons.push(
-
-            turf.polygon([
-                tileToPolygon(tileId)
-            ])
-        );
-    }
-
-    if(polygons.length===0){
-
-        return {
-
-            type:'FeatureCollection',
-
-            features:[{
-
-                type:'Feature',
-
-                geometry:{
-
-                    type:'Polygon',
-
-                    coordinates:[world]
-                }
-            }]
-        };
-    }
-
-    let merged=polygons[0];
-
-    for(let i=1;i<polygons.length;i++){
-
-        try{
-
-            merged=
-            turf.union(
-                merged,
-                polygons[i]
-            );
-
-        }catch(e){}
-    }
-
-    let holes=[];
-
-    if(
-        merged.geometry.type==='Polygon'
-    ){
-
-        holes.push(
-
-            [...merged.geometry.coordinates[0]]
-            .reverse()
-        );
-    }
-
-    return {
-
-        type:'FeatureCollection',
-
-        features:[{
-
-            type:'Feature',
-
-            geometry:{
-
-                type:'Polygon',
-
-                coordinates:[
-
-                    world,
-                    ...holes
-                ]
-            }
-        }]
-    };
-}
-
 
 function buildExploreGeoJSON(){
 
@@ -1100,6 +1012,9 @@ function loadFriendMarker(){
 
 function updateGPS(position){
 
+    const isWalking =
+    navigationMode==='walking';
+
     const lat=
     position.coords.latitude;
 
@@ -1130,11 +1045,7 @@ function updateGPS(position){
 
     map.jumpTo({
 
-        center:currentPosition,
-
-        zoom:16,
-
-        bearing:0
+        center:currentPosition
     });
 
 }else{
@@ -1157,23 +1068,87 @@ function updateGPS(position){
 }
     }
 
+
+/////////////////////////////////////////////////////////////
+// 制限速度
+/////////////////////////////////////////////////////////////
+
+if(!isWalking){
+
     updateSpeedLimit();
+}
+
+/////////////////////////////////////////////////////////////
+// ナビUI更新
+/////////////////////////////////////////////////////////////
+
+if(isWalking){
+
+    const now=Date.now();
+
+    /////////////////////////////////////////////////////////
+    // 徒歩は5秒ごと
+    /////////////////////////////////////////////////////////
+
+    if(
+        now-lastNextInstructionUpdate
+        >
+        5000
+    ){
+
+        updateNextInstruction();
+
+        lastNextInstructionUpdate=now;
+    }
+
+}else{
+
+    /////////////////////////////////////////////////////////
+    // 車モード
+    /////////////////////////////////////////////////////////
 
     updateNextInstruction();
 
     loadFriendMarker();
+}
 
     const tileId=
-    getTileId(lat,lng);
+getTileId(lat,lng);
 
-    if(!exploredTiles[tileId]){
+if(!exploredTiles[tileId]){
 
-        exploredTiles[tileId]=true;
+    exploredTiles[tileId]=true;
 
-        saveExploredTiles();
+    saveExploredTiles();
+
+    /////////////////////////////////////////////////////////
+    // 徒歩モードは更新を間引く
+    /////////////////////////////////////////////////////////
+
+    if(isWalking){
+
+        const now=Date.now();
+
+        if(
+            now-lastGameMaskUpdate
+            >
+            5000
+        ){
+
+            updateGameMask();
+
+            lastGameMaskUpdate=now;
+        }
+
+    }else{
+
+        /////////////////////////////////////////////////////
+        // 車モードは即更新
+        /////////////////////////////////////////////////////
 
         updateGameMask();
     }
+}
 }
 
 function startGPSWatch(){
@@ -1190,7 +1165,7 @@ function startGPSWatch(){
     }
 
     ///////////////////////////////////////////////////////////
-    // モード別設定
+    // 徒歩判定
     ///////////////////////////////////////////////////////////
 
     const isWalking =
@@ -1221,7 +1196,7 @@ function startGPSWatch(){
     };
 
     ///////////////////////////////////////////////////////////
-    // 更新間隔制御
+    // 更新頻度
     ///////////////////////////////////////////////////////////
 
     const minUpdateInterval=
@@ -1232,18 +1207,18 @@ function startGPSWatch(){
     500;
 
     ///////////////////////////////////////////////////////////
-    // watch開始
+    // GPS開始
     ///////////////////////////////////////////////////////////
 
     gpsWatchId=
-    
+    navigator.geolocation.watchPosition(
 
         (position)=>{
 
             const now=Date.now();
 
             ///////////////////////////////////////////////////
-            // 徒歩モードは更新抑制
+            // 更新頻度制御
             ///////////////////////////////////////////////////
 
             if(
@@ -1262,10 +1237,16 @@ function startGPSWatch(){
         (err)=>{
 
             console.log(err);
+
+            document.getElementById(
+                'gpsInfo'
+            ).innerText=
+
+            'GPSエラー';
         },
 
         options
-    ;
+    );
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1273,18 +1254,6 @@ function startGPSWatch(){
 ///////////////////////////////////////////////////////////////
 
 startGPSWatch();
-
-(err)=>{
-
-    console.log(err);
-
-},
-
-{
-    enableHighAccuracy:true,
-    maximumAge:0,
-    timeout:10000
-};
 
 ///////////////////////////////////////////////////////////////
 // 目的地マーカー
@@ -1833,8 +1802,16 @@ map.on('load',()=>{
 
     map.on('moveend',()=>{
 
-        loadPOI();
-    });
+    /////////////////////////////////////////////////////////
+    // 徒歩モードはPOI更新停止
+    /////////////////////////////////////////////////////////
+
+    if(navigationMode==='walking'){
+        return;
+    }
+
+    loadPOI();
+});
 });
 
 ///////////////////////////////////////////////////////////////
