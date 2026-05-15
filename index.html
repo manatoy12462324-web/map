@@ -17,8 +17,6 @@ rel="stylesheet"
 
 <script src="https://unpkg.com/maplibre-gl@5.3.0/dist/maplibre-gl.js"></script>
 
-<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-
 <style>
 
 html,body{
@@ -405,10 +403,6 @@ button.action{
         進行方向固定
     </button>
 
-    <button class="action" id="viewModeButton">
-        3D表示
-    </button>
-
     <div class="title">ナビ</div>
 
     <input
@@ -497,9 +491,9 @@ const map=new maplibregl.Map({
 
     center:[135.7681,35.0116],
 
-    zoom:16,
+    zoom:10,
 
-    pitch:60
+    pitch:0
 });
 
 ///////////////////////////////////////////////////////////////
@@ -526,8 +520,6 @@ let followMode=true;
 
 let northUp=false;
 
-let topView=false;
-
 let navigationMode='driving';
 
 let selectDestinationMode=false;
@@ -549,11 +541,9 @@ let friendMarker=null;
 ///////////////////////////////////////////////////////////////
 
 const TILE_SIZE=0.00015;
+const STORAGE_KEY='explored_tiles_v2';
 
-const STORAGE_KEY='explored_tiles_union_v1';
-
-let exploredTiles=
-loadExploredTiles();
+let exploredTiles = loadExploredTiles();
 
 ///////////////////////////////////////////////////////////////
 // ナビマーカー
@@ -597,7 +587,7 @@ function speak(text){
 
 function loadExploredTiles(){
 
-    const saved=
+    const saved =
     localStorage.getItem(STORAGE_KEY);
 
     if(saved){
@@ -611,9 +601,7 @@ function loadExploredTiles(){
 function saveExploredTiles(){
 
     localStorage.setItem(
-
         STORAGE_KEY,
-
         JSON.stringify(exploredTiles)
     );
 }
@@ -751,23 +739,78 @@ function generateMergedMaskGeoJSON(){
     };
 }
 
+
+function buildExploreGeoJSON(){
+
+    const features=[];
+
+    for(const tileId in exploredTiles){
+
+        const split=tileId.split('_');
+
+        const x=parseInt(split[0]);
+        const y=parseInt(split[1]);
+
+        const lng=x*TILE_SIZE;
+        const lat=y*TILE_SIZE;
+
+        features.push({
+
+            type:'Feature',
+
+            geometry:{
+                type:'Polygon',
+
+                coordinates:[[
+                    [lng,lat],
+                    [lng+TILE_SIZE,lat],
+                    [lng+TILE_SIZE,lat+TILE_SIZE],
+                    [lng,lat+TILE_SIZE],
+                    [lng,lat]
+                ]]
+            }
+        });
+    }
+
+    return {
+
+        type:'FeatureCollection',
+
+        features
+    };
+}
+
+
 ///////////////////////////////////////////////////////////////
 // マスク更新
 ///////////////////////////////////////////////////////////////
 
 function updateGameMask(){
 
-    if(map.getSource('mask-source')){
+    if(map.getSource('explore-source')){
 
-        map.getSource('mask-source')
+        map.getSource('explore-source')
         .setData(
-            generateMergedMaskGeoJSON()
+            buildExploreGeoJSON()
         );
     }
 
     map.setLayoutProperty(
 
-        'mask-layer',
+        'fog-layer',
+
+        'visibility',
+
+        gameMode
+        ?
+        'visible'
+        :
+        'none'
+    );
+
+    map.setLayoutProperty(
+
+        'explore-layer',
 
         'visibility',
 
@@ -1615,21 +1658,36 @@ out;
 
 map.on('load',()=>{
 
-    map.addSource('mask-source',{
+    ///////////////////////////////////////////////////////////
+    // 黒背景
+    ///////////////////////////////////////////////////////////
+
+    map.addSource('fog-source',{
 
         type:'geojson',
 
-        data:
-        generateMergedMaskGeoJSON()
+        data:{
+            type:'Feature',
+            geometry:{
+                type:'Polygon',
+                coordinates:[[
+                    [-180,-85],
+                    [180,-85],
+                    [180,85],
+                    [-180,85],
+                    [-180,-85]
+                ]]
+            }
+        }
     });
 
     map.addLayer({
 
-        id:'mask-layer',
+        id:'fog-layer',
 
         type:'fill',
 
-        source:'mask-source',
+        source:'fog-source',
 
         paint:{
 
@@ -1639,14 +1697,40 @@ map.on('load',()=>{
         }
     });
 
-    map.setLayoutProperty(
+    ///////////////////////////////////////////////////////////
+    // 探索済み
+    ///////////////////////////////////////////////////////////
 
-        'mask-layer',
+    map.addSource('explore-source',{
 
-        'visibility',
+        type:'geojson',
 
-        'none'
-    );
+        data:buildExploreGeoJSON()
+    });
+
+    map.addLayer({
+
+        id:'explore-layer',
+
+        type:'fill',
+
+        source:'explore-source',
+
+        paint:{
+
+            'fill-color':'rgba(0,0,0,0)',
+
+            'fill-outline-color':'rgba(0,0,0,0)'
+        }
+    });
+
+    ///////////////////////////////////////////////////////////
+    // blend
+    ///////////////////////////////////////////////////////////
+
+    map.moveLayer('explore-layer');
+
+    updateGameMask();
 
     loadPOI();
 
@@ -1708,32 +1792,7 @@ document.getElementById(
     '進行方向固定';
 };
 
-document.getElementById(
-'viewModeButton'
-).onclick=()=>{
 
-    topView=!topView;
-
-    map.easeTo({
-
-        pitch:
-        topView
-        ?
-        0
-        :
-        60
-    });
-
-    document.getElementById(
-    'viewModeButton'
-    ).innerText=
-
-    topView
-    ?
-    '真上表示'
-    :
-    '3D表示';
-};
 
 document.getElementById(
 'routeButton'
