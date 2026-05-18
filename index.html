@@ -667,20 +667,17 @@ function drawFogMask(){
         // 白で描画（←超重要）
         /////////////////////////////////////////////////////
 
-        fogCtx.beginPath();
-
         fogCtx.fillStyle =
-        'rgba(255,255,255,1)';
+    'rgba(255,255,255,1)';
 
-        fogCtx.arc(
-            point.x,
-            point.y,
-            55,
-            0,
-            Math.PI*2
-        );
+    fogCtx.fillRect(
 
-        fogCtx.fill();
+    point.x - TILE_PIXEL_SIZE/2,
+    point.y - TILE_PIXEL_SIZE/2,
+
+    TILE_PIXEL_SIZE,
+    TILE_PIXEL_SIZE
+    );
     }
 
     /////////////////////////////////////////////////////////
@@ -692,17 +689,14 @@ function drawFogMask(){
         const p =
         map.project(currentPosition);
 
-        fogCtx.beginPath();
+        fogCtx.fillRect(
 
-        fogCtx.arc(
-            p.x,
-            p.y,
-            90,
-            0,
-            Math.PI*2
-        );
+    p.x - TILE_PIXEL_SIZE,
+    p.y - TILE_PIXEL_SIZE,
 
-        fogCtx.fill();
+    TILE_PIXEL_SIZE*2,
+    TILE_PIXEL_SIZE*2
+);
     }
 
     /////////////////////////////////////////////////////////
@@ -718,6 +712,11 @@ function drawFogMask(){
 ///////////////////////////////////////////////////////////////
 
 const TILE_SIZE=0.00015;
+/////////////////////////////////////////////////////////////
+// 表示タイルサイズ（画面px）
+/////////////////////////////////////////////////////////////
+
+const TILE_PIXEL_SIZE = 70;
 const STORAGE_KEY='explored_tiles_v2';
 
 let exploredTiles = loadExploredTiles();
@@ -2108,6 +2107,22 @@ document.getElementById(
 ///////////////////////////////////////////////////////////////
 // HTTPS
 ///////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////
+// ページ終了時保存
+/////////////////////////////////////////////////////////////
+
+window.addEventListener(
+    'beforeunload',
+    ()=>{
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(exploredTiles)
+        );
+    }
+);
 
 if(location.protocol!=='https:'){
 
