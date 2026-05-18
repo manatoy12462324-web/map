@@ -353,8 +353,6 @@ button.action{
     width:100%;
     height:100%;
 
-    background:black;
-
     pointer-events:none;
 
     z-index:500;
@@ -596,7 +594,7 @@ window.addEventListener(
 function drawFogMask(){
 
     /////////////////////////////////////////////////////////
-    // gameMode OFF
+    // OFFなら非表示
     /////////////////////////////////////////////////////////
 
     if(!gameMode)return;
@@ -613,10 +611,11 @@ function drawFogMask(){
     );
 
     /////////////////////////////////////////////////////////
-    // 全画面黒
+    // 黒マスク
     /////////////////////////////////////////////////////////
 
-    fogCtx.fillStyle='rgba(0,0,0,0.96)';
+    fogCtx.fillStyle =
+    'rgba(0,0,0,0.96)';
 
     fogCtx.fillRect(
         0,
@@ -633,71 +632,77 @@ function drawFogMask(){
     'destination-out';
 
     /////////////////////////////////////////////////////////
-    // 探索済みタイル
+    // 探索済み描画
     /////////////////////////////////////////////////////////
 
     for(const tileId in exploredTiles){
 
-        const split=
+        const split =
         tileId.split('_');
 
-        const x=parseInt(split[0]);
-        const y=parseInt(split[1]);
+        const x =
+        parseInt(split[0]);
+
+        const y =
+        parseInt(split[1]);
 
         /////////////////////////////////////////////////////
-        // タイル座標
+        // タイル中心座標
         /////////////////////////////////////////////////////
 
-        const lng=x*TILE_SIZE;
-        const lat=y*TILE_SIZE;
+        const lng =
+        x*TILE_SIZE + TILE_SIZE/2;
 
-        /////////////////////////////////////////////////////
-        // 中心
-        /////////////////////////////////////////////////////
-
-        const centerLng=
-        lng+TILE_SIZE/2;
-
-        const centerLat=
-        lat+TILE_SIZE/2;
+        const lat =
+        y*TILE_SIZE + TILE_SIZE/2;
 
         /////////////////////////////////////////////////////
         // map → screen
         /////////////////////////////////////////////////////
 
-        const point=
-        map.project([
-            centerLng,
-            centerLat
-        ]);
+        const point =
+        map.project([lng,lat]);
 
         /////////////////////////////////////////////////////
-        // 四角で穴あけ
+        // 白で描画（←超重要）
         /////////////////////////////////////////////////////
 
-        fogCtx.clearRect(
-            point.x-40,
-            point.y-40,
-            80,
-            80
+        fogCtx.beginPath();
+
+        fogCtx.fillStyle =
+        'rgba(255,255,255,1)';
+
+        fogCtx.arc(
+            point.x,
+            point.y,
+            55,
+            0,
+            Math.PI*2
         );
+
+        fogCtx.fill();
     }
 
     /////////////////////////////////////////////////////////
-    // 現在地周辺ライト
+    // 現在地ライト
     /////////////////////////////////////////////////////////
 
     if(currentPosition){
 
-        const playerPoint=
+        const p =
         map.project(currentPosition);
 
-        fogCtx.clearRect(
-            playerPoint.x-80,
-            playerPoint.y-80,
-            160,
-            160
+        fogCtx.beginPath();
+
+        fogCtx.arc(
+            p.x,
+            p.y,
+            90,
+            0,
+            Math.PI*2
         );
+
+        fogCtx.fill();
     }
 
     /////////////////////////////////////////////////////////
@@ -1891,15 +1896,13 @@ map.on('load',()=>{
 
     loadPOI();
 
-    map.on('moveend',()=>{
-
     map.on('move',()=>{
 
     if(gameMode){
 
         drawFogMask();
     }
-    });
+});
 
     /////////////////////////////////////////////////////////
     // 徒歩モードはPOI更新停止
@@ -1930,7 +1933,7 @@ map.on('load',()=>{
             drawFogMask();
         }
     });
-});
+
 
 ///////////////////////////////////////////////////////////////
 // ボタン
