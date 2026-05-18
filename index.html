@@ -617,12 +617,88 @@ function drawFogMask(){
     fogCtx.fillStyle =
     'rgba(0,0,0,0.96)';
 
-    fogCtx.fillRect(
-        0,
-        0,
-        fogCanvas.width,
-        fogCanvas.height
-    );
+    /////////////////////////////////////////////////////////////
+// タイル四隅
+/////////////////////////////////////////////////////////////
+
+const lng1 = lng;
+const lat1 = lat;
+
+const lng2 = lng + TILE_SIZE;
+const lat2 = lat + TILE_SIZE;
+
+/////////////////////////////////////////////////////////////
+// 左上
+/////////////////////////////////////////////////////////////
+
+const p1 =
+map.project([lng1,lat1]);
+
+/////////////////////////////////////////////////////////////
+// 右下
+/////////////////////////////////////////////////////////////
+
+const p2 =
+map.project([lng2,lat2]);
+
+/////////////////////////////////////////////////////////////
+// サイズ
+/////////////////////////////////////////////////////////////
+
+const width =
+Math.abs(p2.x-p1.x);
+
+const height =
+Math.abs(p2.y-p1.y);
+
+/////////////////////////////////////////////////////////////
+// 四角透明化
+/////////////////////////////////////////////////////////////
+
+fogCtx.fillStyle =
+'rgba(255,255,255,1)';
+
+const playerTileId =
+getTileId(
+    currentPosition[1],
+    currentPosition[0]
+);
+
+const split =
+playerTileId.split('_');
+
+const px =
+parseInt(split[0]);
+
+const py =
+parseInt(split[1]);
+
+const plng1 =
+px*TILE_SIZE;
+
+const plat1 =
+py*TILE_SIZE;
+
+const plng2 =
+plng1+TILE_SIZE;
+
+const plat2 =
+plat1+TILE_SIZE;
+
+const pp1 =
+map.project([plng1,plat1]);
+
+const pp2 =
+map.project([plng2,plat2]);
+
+fogCtx.fillRect(
+
+    Math.min(pp1.x,pp2.x),
+    Math.min(pp1.y,pp2.y),
+
+    Math.abs(pp2.x-pp1.x),
+    Math.abs(pp2.y-pp1.y)
+);
 
     /////////////////////////////////////////////////////////
     // 穴あけモード
@@ -711,12 +787,12 @@ function drawFogMask(){
 // 探索ゲーム
 ///////////////////////////////////////////////////////////////
 
-const TILE_SIZE=0.00015;
+const TILE_SIZE=0.0003;
 /////////////////////////////////////////////////////////////
 // 表示タイルサイズ（画面px）
 /////////////////////////////////////////////////////////////
 
-const TILE_PIXEL_SIZE = 70;
+
 const STORAGE_KEY='explored_tiles_v2';
 
 let exploredTiles = loadExploredTiles();
