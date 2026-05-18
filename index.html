@@ -343,12 +343,31 @@ button.action{
     box-shadow:0 0 12px rgba(0,255,136,0.9);
 }
 
+#fogCanvas{
+
+    position:absolute;
+
+    top:0;
+    left:0;
+
+    width:100%;
+    height:100%;
+
+    background:black;
+
+    pointer-events:none;
+
+    z-index:500;
+}
+
 </style>
 </head>
 
 <body>
 
 <div id="map"></div>
+
+<canvas id="fogCanvas"></canvas>
 
 <div id="carNaviUI">
 
@@ -378,8 +397,6 @@ button.action{
 
     距離: -- km<br>
     到着: --時間 --分
-
-</div>
 
 </div>
 
@@ -547,6 +564,133 @@ let lastNextInstructionUpdate=0;
 let lastGameMaskUpdate=0;
 
 ///////////////////////////////////////////////////////////////
+// RPGマスク
+///////////////////////////////////////////////////////////////
+
+const fogCanvas =
+document.getElementById('fogCanvas');
+
+const fogCtx =
+fogCanvas.getContext('2d');
+
+function resizeFogCanvas(){
+
+    fogCanvas.width =
+    window.innerWidth;
+
+    fogCanvas.height =
+    window.innerHeight;
+}
+
+resizeFogCanvas();
+
+window.addEventListener(
+    'resize',
+    resizeFogCanvas
+);
+
+///////////////////////////////////////////////////////////////
+// RPGマスク描画
+///////////////////////////////////////////////////////////////
+
+function drawFogMask(){
+
+    ///////////////////////////////////////////////////////////
+    // 全画面黒
+    ///////////////////////////////////////////////////////////
+
+    fogCtx.globalCompositeOperation =
+    'source-over';
+
+    fogCtx.fillStyle =
+    'rgba(0,0,0,0.96)';
+
+    fogCtx.fillRect(
+        0,
+        0,
+        fogCanvas.width,
+        fogCanvas.height
+    );
+
+    ///////////////////////////////////////////////////////////
+    // 探索済みを透明化
+    ///////////////////////////////////////////////////////////
+
+    fogCtx.globalCompositeOperation =
+    'destination-out';
+
+    for(const tileId in exploredTiles){
+
+        const split=
+        tileId.split('_');
+
+        const x=parseInt(split[0]);
+        const y=parseInt(split[1]);
+
+        const lng=x*TILE_SIZE;
+        const lat=y*TILE_SIZE;
+
+        ///////////////////////////////////////////////////////
+        // タイル中心
+        ///////////////////////////////////////////////////////
+
+        const centerLng=
+        lng+TILE_SIZE/2;
+
+        const centerLat=
+        lat+TILE_SIZE/2;
+
+        ///////////////////////////////////////////////////////
+        // 地図→画面座標
+        ///////////////////////////////////////////////////////
+
+        const point=
+        map.project([
+            centerLng,
+            centerLat
+        ]);
+
+        ///////////////////////////////////////////////////////
+        // 円形透明化
+        ///////////////////////////////////////////////////////
+
+        fogCtx.beginPath();
+
+        fogCtx.arc(
+            point.x,
+            point.y,
+            45,
+            0,
+            Math.PI*2
+        );
+
+        fogCtx.fill();
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 現在地周辺も表示
+    ///////////////////////////////////////////////////////////
+
+    if(currentPosition){
+
+        const playerPoint=
+        map.project(currentPosition);
+
+        fogCtx.beginPath();
+
+        fogCtx.arc(
+            playerPoint.x,
+            playerPoint.y,
+            90,
+            0,
+            Math.PI*2
+        );
+
+        fogCtx.fill();
+    }
+}
+
+///////////////////////////////////////////////////////////////
 // 探索ゲーム
 ///////////////////////////////////////////////////////////////
 
@@ -703,39 +847,15 @@ function buildExploreGeoJSON(){
 
 function updateGameMask(){
 
-    if(map.getSource('explore-source')){
+    if(!gameMode){
 
-        map.getSource('explore-source')
-        .setData(
-            buildExploreGeoJSON()
-        );
+        fogCanvas.style.display='none';
+        return;
     }
 
-    map.setLayoutProperty(
+    fogCanvas.style.display='block';
 
-        'fog-layer',
-
-        'visibility',
-
-        gameMode
-        ?
-        'visible'
-        :
-        'none'
-    );
-
-    map.setLayoutProperty(
-
-        'explore-layer',
-
-        'visibility',
-
-        gameMode
-        ?
-        'visible'
-        :
-        'none'
-    );
+    drawFogMask();
 }
 
 ///////////////////////////////////////////////////////////////
@@ -1728,79 +1848,32 @@ map.on('load',()=>{
     // 黒背景
     ///////////////////////////////////////////////////////////
 
-    map.addSource('fog-source',{
-
-        type:'geojson',
-
-        data:{
-            type:'Feature',
-            geometry:{
-                type:'Polygon',
-                coordinates:[[
-                    [-180,-85],
-                    [180,-85],
-                    [180,85],
-                    [-180,85],
-                    [-180,-85]
-                ]]
-            }
-        }
-    });
-
-    map.addLayer({
-
-        id:'fog-layer',
-
-        type:'fill',
-
-        source:'fog-source',
-
-        paint:{
-
-            'fill-color':'black',
-
-            'fill-opacity':0.96
-        }
-    });
+    
 
     ///////////////////////////////////////////////////////////
     // 探索済み
     ///////////////////////////////////////////////////////////
 
-    map.addSource('explore-source',{
-
-        type:'geojson',
-
-        data:buildExploreGeoJSON()
-    });
-
-    map.addLayer({
-
-        id:'explore-layer',
-
-        type:'fill',
-
-        source:'explore-source',
-
-        paint:{
-
-            'fill-color':'rgba(0,0,0,0)',
-
-            'fill-outline-color':'rgba(0,0,0,0)'
-        }
-    });
+    
 
     ///////////////////////////////////////////////////////////
     // blend
     ///////////////////////////////////////////////////////////
 
-    map.moveLayer('explore-layer');
 
     updateGameMask();
 
     loadPOI();
 
     map.on('moveend',()=>{
+
+    map.on('move',()=>{
+
+    if(gameMode){
+
+        drawFogMask();
+    }
+    });
 
     /////////////////////////////////////////////////////////
     // 徒歩モードはPOI更新停止
