@@ -904,6 +904,19 @@ function updateSpeedLimit(){
 
 function updateNextInstruction(){
 
+    ///////////////////////////////////////////////////////////
+// 曲がり地点到達判定
+///////////////////////////////////////////////////////////
+
+if(distance < 10){
+
+    currentStepIndex++;
+
+    updateNextInstruction();
+
+    return;
+}
+
     if(!currentSteps.length)return;
 
     ///////////////////////////////////////////////////////////
@@ -974,8 +987,33 @@ function updateNextInstruction(){
     // 距離表示
     ///////////////////////////////////////////////////////////
 
-    let distance=
-    step.distance;
+    ///////////////////////////////////////////////////////////
+// 現在地 → 次曲がり地点距離
+///////////////////////////////////////////////////////////
+
+const stepLocation =
+step.maneuver.location;
+
+const stepLng =
+stepLocation[0];
+
+const stepLat =
+stepLocation[1];
+
+///////////////////////////////////////////////////////////
+// 距離計算(m)
+///////////////////////////////////////////////////////////
+
+const distance =
+turf.distance(
+
+    turf.point(currentPosition),
+
+    turf.point([stepLng,stepLat]),
+
+    {units:'kilometers'}
+
+) * 1000;
 
     let distanceText='';
 
@@ -1054,8 +1092,33 @@ ${direction}
 // 次の次の距離
 ///////////////////////////////////////////////////////////
 
-let nextDistance=
-nextStep.distance;
+///////////////////////////////////////////////////////////
+// 次の次の曲がり地点
+///////////////////////////////////////////////////////////
+
+const nextStepLocation =
+nextStep.maneuver.location;
+
+const nextLng =
+nextStepLocation[0];
+
+const nextLat =
+nextStepLocation[1];
+
+///////////////////////////////////////////////////////////
+// 距離計算
+///////////////////////////////////////////////////////////
+
+const nextDistance =
+turf.distance(
+
+    turf.point(currentPosition),
+
+    turf.point([nextLng,nextLat]),
+
+    {units:'kilometers'}
+
+) * 1000;
 
 let nextDistanceText='';
 
