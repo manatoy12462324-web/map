@@ -19,6 +19,8 @@ rel="stylesheet"
 
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
 <style>
 
 html,body{
@@ -561,6 +563,29 @@ let lastNextInstructionUpdate=0;
 
 let lastGameMaskUpdate=0;
 
+///////////////////////////////////////////////////////////////
+// Socket.IO
+///////////////////////////////////////////////////////////////
+
+const socket =
+io("https://YOUR_RENDER_URL.onrender.com");
+
+///////////////////////////////////////////////////////////////
+// 自分ID
+///////////////////////////////////////////////////////////////
+
+const myUserId =
+
+"player_" +
+Math.random()
+.toString(36)
+.substr(2,9);
+
+///////////////////////////////////////////////////////////////
+// フレンドマーカー
+///////////////////////////////////////////////////////////////
+
+const friendMarkers = {};
 ///////////////////////////////////////////////////////////////
 // RPGマスク
 ///////////////////////////////////////////////////////////////
@@ -1170,46 +1195,6 @@ ${nextDirection}
     }
 }
 
-///////////////////////////////////////////////////////////////
-// 友達マーカー
-///////////////////////////////////////////////////////////////
-
-function loadFriendMarker(){
-
-    if(friendMarker){
-
-        friendMarker.remove();
-    }
-
-    const div=
-    document.createElement('div');
-
-    div.className='friend-marker';
-
-    const friendLng=
-    currentPosition
-    ?
-    currentPosition[0]+0.003
-    :
-    135.771;
-
-    const friendLat=
-    currentPosition
-    ?
-    currentPosition[1]+0.002
-    :
-    35.012;
-
-    friendMarker=
-    new maplibregl.Marker({
-
-        element:div
-    })
-
-    .setLngLat([friendLng,friendLat])
-
-    .addTo(map);
-}
 
 ///////////////////////////////////////////////////////////////
 // GPS
@@ -1230,6 +1215,26 @@ function updateGPS(position){
     position.coords.heading || 0;
 
     currentPosition=[lng,lat];
+
+///////////////////////////////////////////////////////////////
+// サーバへ送信
+///////////////////////////////////////////////////////////////
+
+socket.emit("updatePosition",{
+
+    id: myUserId,
+
+    name:"プレイヤー",
+
+    lat,
+    lng,
+
+    heading
+});
+
+   
+
+  
 
     userMarker
     .setLngLat(currentPosition)
@@ -1314,7 +1319,6 @@ if(isWalking){
 
     updateNextInstruction();
 
-    loadFriendMarker();
 }
 
     /////////////////////////////////////////////////////////////
@@ -1465,6 +1469,86 @@ function startGPSWatch(){
 ///////////////////////////////////////////////////////////////
 
 startGPSWatch();
+
+
+///////////////////////////////////////////////////////////////
+// 他プレイヤー受信
+///////////////////////////////////////////////////////////////
+
+socket.on("players",(players)=>{
+
+    players.forEach(player=>{
+
+        ///////////////////////////////////////////////////////
+        // 自分除外
+        ///////////////////////////////////////////////////////
+
+        if(player.id===myUserId){
+            return;
+        }
+
+        ///////////////////////////////////////////////////////
+        // まだ存在しない
+        ///////////////////////////////////////////////////////
+
+        if(!friendMarkers[player.id]){
+
+            const div =
+            document.createElement("div");
+
+            div.className =
+            "friend-marker";
+
+            ///////////////////////////////////////////////////
+            // 見た目
+            ///////////////////////////////////////////////////
+
+            div.innerHTML="🚗";
+
+            ///////////////////////////////////////////////////
+            // 名前
+            ///////////////////////////////////////////////////
+
+            div.title=
+            player.name;
+
+            ///////////////////////////////////////////////////
+            // マーカー作成
+            ///////////////////////////////////////////////////
+
+            friendMarkers[player.id]=
+
+            new maplibregl.Marker({
+
+                element:div
+
+            })
+
+            .setLngLat([
+
+                player.lng,
+                player.lat
+
+            ])
+
+            .addTo(map);
+
+        }else{
+
+            ///////////////////////////////////////////////////
+            // 更新
+            ///////////////////////////////////////////////////
+
+            friendMarkers[player.id]
+            .setLngLat([
+
+                player.lng,
+                player.lat
+
+            ]);
+        }
+    });
+});
 
 ///////////////////////////////////////////////////////////////
 // 目的地マーカー
