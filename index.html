@@ -695,6 +695,8 @@ let lastNextInstructionUpdate=0;
 
 let lastGameMaskUpdate=0;
 
+let lastPositionSendTime=0;
+
 ///////////////////////////////////////////////////////////////
 // Socket.IO
 ///////////////////////////////////////////////////////////////
@@ -1544,26 +1546,41 @@ currentPosition = snapped;
 
 
 ///////////////////////////////////////////////////////////////
-// サーバへ送信
+// 位置共有送信制限
 ///////////////////////////////////////////////////////////////
 
-socket.emit("updatePosition",{
+const now = Date.now();
 
-    roomId:
-    currentRoomId,
+///////////////////////////////////////////////////////////////
+// 1秒ごとだけ送信
+///////////////////////////////////////////////////////////////
 
-    password:
-    currentRoomPassword,
+if(now - lastPositionSendTime > 1000){
 
-    id:myUserId,
+    socket.emit("updatePosition",{
 
-    name:"プレイヤー",
+        roomId:
+        currentRoomId,
 
-    lat,
-    lng,
+        password:
+        currentRoomPassword,
 
-    heading
-});
+        id:myUserId,
+
+        name:"プレイヤー",
+
+        lat,
+        lng,
+
+        heading
+    });
+
+    ///////////////////////////////////////////////////////////
+    // 最終送信時刻更新
+    ///////////////////////////////////////////////////////////
+
+    lastPositionSendTime = now;
+}
 
    
 
