@@ -461,45 +461,7 @@ button.action{
 
 <div id="map"></div>
 
-///////////////////////////////////////////////////////////////
-// ルームUI
-///////////////////////////////////////////////////////////////
 
-
-<div id="roomUI">
-
-    <div id="roomPanel">
-
-        <div class="roomTitle">
-            位置共有ルーム
-        </div>
-
-        <input
-        id="roomIdInput"
-        placeholder="ルームID"
-        />
-
-        <input
-        id="roomPasswordInput"
-        type="password"
-        placeholder="パスワード"
-        />
-
-        <button id="joinRoomButton">
-            ルーム参加
-        </button>
-
-        <button id="createRoomButton">
-            ルーム作成
-        </button>
-
-        <div id="roomStatus">
-            未接続
-        </div>
-
-    </div>
-
-</div>
 
 <canvas id="fogCanvas"></canvas>
 
@@ -582,6 +544,42 @@ button.action{
     <button class="action" id="tollButton">
         有料道路 回避 OFF
     </button>
+
+    <div class="title">位置共有</div>
+
+    <input
+    id="roomIdInput"
+    placeholder="ルームID"
+    />
+
+    <input
+    id="roomPasswordInput"
+    type="password"
+    placeholder="パスワード"
+    />
+
+    <button class="action" id="joinRoomButton">
+    ルーム参加
+    </button>
+
+    <button class="action" id="createRoomButton">
+    ルーム作成
+    </button>
+
+    <button class="action" id="leaveRoomButton">
+    ルーム退出
+    </button>
+
+    <div
+    id="roomStatus"
+    style="
+    color:#00ff88;
+    margin-bottom:15px;
+    font-size:14px;
+    "
+    >
+    未接続
+    </div>
 
     <div class="title">探索ゲーム</div>
 
@@ -2584,6 +2582,47 @@ document.getElementById(
     saveExploredTiles();
 
     updateGameMask();
+};
+
+///////////////////////////////////////////////////////////////
+// ルーム退出
+///////////////////////////////////////////////////////////////
+
+document.getElementById(
+'leaveRoomButton'
+).onclick=()=>{
+
+    currentRoomId=null;
+
+    currentRoomPassword=null;
+
+    joinedRoom=false;
+
+    ///////////////////////////////////////////////////////////
+    // マーカー削除
+    ///////////////////////////////////////////////////////////
+
+    for(const id in friendMarkers){
+
+        friendMarkers[id].remove();
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 初期化
+    ///////////////////////////////////////////////////////////
+
+    Object.keys(friendMarkers)
+    .forEach(key=>delete friendMarkers[key]);
+
+    ///////////////////////////////////////////////////////////
+    // 表示
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'roomStatus'
+    ).innerText='未接続';
+
+    speak('ルームを退出しました');
 };
 
 ///////////////////////////////////////////////////////////////
