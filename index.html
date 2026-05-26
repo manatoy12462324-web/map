@@ -1552,32 +1552,28 @@ currentPosition = snapped;
 const now = Date.now();
 
 ///////////////////////////////////////////////////////////////
-// 1秒ごとだけ送信
+// ルーム参加中だけ送信
 ///////////////////////////////////////////////////////////////
 
-if(now - lastPositionSendTime > 1000){
+if(
+    joinedRoom &&
+    currentRoomId &&
+    currentRoomPassword &&
+    now - lastPositionSendTime > 1000
+){
 
     socket.emit("updatePosition",{
 
-        roomId:
-        currentRoomId,
+        roomId: currentRoomId,
+        password: currentRoomPassword,
 
-        password:
-        currentRoomPassword,
-
-        id:myUserId,
-
-        name:"プレイヤー",
+        id: myUserId,
+        name: "プレイヤー",
 
         lat,
         lng,
-
         heading
     });
-
-    ///////////////////////////////////////////////////////////
-    // 最終送信時刻更新
-    ///////////////////////////////////////////////////////////
 
     lastPositionSendTime = now;
 }
