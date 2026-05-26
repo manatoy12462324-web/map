@@ -568,7 +568,7 @@ let lastGameMaskUpdate=0;
 ///////////////////////////////////////////////////////////////
 
 const socket =
-io("https://YOUR_RENDER_URL.onrender.com");
+io("https://map-3-rcwb.onrender.com");
 
 ///////////////////////////////////////////////////////////////
 // 自分ID
@@ -1195,12 +1195,55 @@ ${nextDirection}
     }
 }
 
+///////////////////////////////////////////////////////////////
+// マップマッチング
+///////////////////////////////////////////////////////////////
+
+async function snapToRoad(lng, lat){
+
+    try{
+
+        const url =
+`https://router.project-osrm.org/match/v1/driving/${lng},${lat}?geometries=geojson&radiuses=20`;
+
+        const res = await fetch(url);
+
+        const data = await res.json();
+
+        ///////////////////////////////////////////////////////
+        // マッチ成功
+        ///////////////////////////////////////////////////////
+
+        if(
+            data.matchings &&
+            data.matchings.length > 0
+        ){
+
+            const coord =
+            data.matchings[0]
+            .geometry
+            .coordinates[0];
+
+            return coord;
+        }
+
+    }catch(e){
+
+        console.log(e);
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 失敗時は元GPS
+    ///////////////////////////////////////////////////////////
+
+    return [lng,lat];
+}
 
 ///////////////////////////////////////////////////////////////
 // GPS
 ///////////////////////////////////////////////////////////////
 
-function updateGPS(position){
+async function updateGPS(position){
 
     const isWalking =
     navigationMode==='walking';
@@ -1214,7 +1257,19 @@ function updateGPS(position){
     const heading=
     position.coords.heading || 0;
 
-    currentPosition=[lng,lat];
+    ///////////////////////////////////////////////////////////////
+// 道路吸着
+///////////////////////////////////////////////////////////////
+
+const snapped =
+await snapToRoad(lng,lat);
+
+currentPosition = snapped;
+
+
+
+
+
 
 ///////////////////////////////////////////////////////////////
 // サーバへ送信
