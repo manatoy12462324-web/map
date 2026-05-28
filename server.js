@@ -144,19 +144,19 @@ io.on("connection",(socket)=>{
     // プレイヤー保存
     ///////////////////////////////////////////////////////
 
-    rooms[roomId].players[socket.userId] = {
+    rooms[roomId].players[socket.id] = {
 
-    id: socket.userId,
+        id: socket.id,
 
-    socketId: socket.id,
+        userId: socket.userId,
 
-    name: data.name,
+        name: data.name,
 
-    lat: data.lat,
-    lng: data.lng,
+        lat: data.lat,
+        lng: data.lng,
 
-    heading: data.heading
-};
+        heading: data.heading
+    };
 
     ///////////////////////////////////////////////////////
     // 全員へ送信
@@ -192,12 +192,14 @@ socket.on("leaveRoom",()=>{
 
     if(rooms[roomId]){
 
-        delete rooms[roomId].players[socket.userId];
+        delete rooms[roomId].players[socket.id];
 
-io.to(roomId).emit(
-    "removePlayer",
-    socket.userId
-);
+        io.to(roomId).emit(
+        "removePlayer",
+        socket.id
+    );
+
+
     }
 
     ///////////////////////////////////////////////////////
@@ -275,45 +277,3 @@ server.listen(3000,()=>{
     console.log("Server Start");
 });
 
-///////////////////////////////////////////////////////////////
-// 切断時
-///////////////////////////////////////////////////////////////
-
-socket.on("disconnect",()=>{
-
-    if(!socket.roomId)return;
-
-    const roomId = socket.roomId;
-
-    if(rooms[roomId]){
-
-        ///////////////////////////////////////////////////
-        // プレイヤー削除
-        ///////////////////////////////////////////////////
-
-        delete rooms[roomId].players[socket.userId];
-
-        ///////////////////////////////////////////////////
-        // 他プレイヤーへ通知
-        ///////////////////////////////////////////////////
-
-        io.to(roomId).emit(
-            "removePlayer",
-            socket.userId
-        );
-
-        ///////////////////////////////////////////////////
-        // 空ルーム削除
-        ///////////////////////////////////////////////////
-
-        if(
-            Object.keys(
-                rooms[roomId].players
-            ).length === 0
-        ){
-            delete rooms[roomId];
-        }
-    }
-
-    console.log("切断:",socket.userId);
-});
