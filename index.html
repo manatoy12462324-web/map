@@ -548,6 +548,11 @@ button.action{
     <div class="title">位置共有</div>
 
     <input
+    id="playerNameInput"
+    placeholder="プレイヤー名"
+    />
+
+    <input
     id="roomIdInput"
     placeholder="ルームID"
     />
@@ -818,6 +823,8 @@ let currentRoomPassword = null;
 
 let joinedRoom = false;
 
+let playerName = "プレイヤー";
+
 ///////////////////////////////////////////////////////////////
 // ルーム参加
 ///////////////////////////////////////////////////////////////
@@ -835,6 +842,16 @@ document.getElementById(
     document.getElementById(
         'roomPasswordInput'
     ).value.trim();
+
+    const name =
+    document.getElementById(
+        'playerNameInput'
+    ).value.trim();
+
+    if(name){
+
+        playerName = name;
+    }
 
     if(!roomId){
 
@@ -861,7 +878,7 @@ document.getElementById(
         {
             roomId,
             password,
-            userId: myUserId
+            userId: myUserId,
         }
     );
 
@@ -896,6 +913,16 @@ document.getElementById(
     document.getElementById(
         'roomPasswordInput'
     ).value.trim();
+
+    const name =
+    document.getElementById(
+        'playerNameInput'
+    ).value.trim();
+
+    if(name){
+
+        playerName = name;
+    }
 
     if(!roomId){
         alert('ルームID入力');
@@ -1654,7 +1681,7 @@ if(
     password: currentRoomPassword,
     userId: myUserId,
 
-    name: "プレイヤー",
+    name: playerName,
 
     lat,
     lng,
@@ -1930,7 +1957,65 @@ socket.on("players",(players)=>{
             // 見た目
             ///////////////////////////////////////////////////
 
-            div.innerHTML="🚗";
+            div.innerHTML = `
+            <div style="
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            transform:translateY(-10px);
+            ">
+                <div style="
+                display:flex;
+                justify-content:center;
+                align-items:center;
+
+                min-width:42px;
+                height:42px;
+
+                padding:0 10px;
+
+                border-radius:999px;
+
+                background:rgba(0,0,0,0.85);
+
+                border:2px solid white;
+
+                color:white;
+
+                font-size:12px;
+                font-weight:bold;
+
+                margin-bottom:4px;
+
+                white-space:nowrap;
+
+                box-shadow:0 0 10px rgba(0,0,0,0.5);
+                ">
+                    ${player.name}
+                </div>
+
+                <div style="
+                width:42px;
+                height:42px;
+
+                border-radius:50%;
+
+                background:#00c853;
+
+                display:flex;
+                justify-content:center;
+                align-items:center;
+
+                font-size:22px;
+
+                border:2px solid white;
+
+                box-shadow:0 0 12px rgba(0,255,120,0.8);
+                ">
+                    🚗
+                </div>
+            </div>
+            `;
 
             ///////////////////////////////////////////////////
             // 名前
