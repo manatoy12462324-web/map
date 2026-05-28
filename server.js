@@ -31,6 +31,8 @@ io.on("connection",(socket)=>{
 
     socket.on("createRoom",(data)=>{
 
+        socket.userId = data.userId;
+
         const { roomId,password } = data;
 
         //////////////////////////////////////////////////
@@ -78,6 +80,8 @@ io.on("connection",(socket)=>{
     //////////////////////////////////////////////////
 
     socket.on("joinRoom",(data)=>{
+
+        socket.userId = data.userId;
 
         const { roomId,password } = data;
 
@@ -140,33 +144,19 @@ io.on("connection",(socket)=>{
     // プレイヤー保存
     ///////////////////////////////////////////////////////
 
-    rooms[roomId].players[socket.id] = {
+    rooms[roomId].players[socket.userId] = {
 
-        ///////////////////////////////////////////////////
-        // ← これ超重要
-        ///////////////////////////////////////////////////
+    id: socket.userId,
 
-        id: socket.id,
+    socketId: socket.id,
 
-        ///////////////////////////////////////////////////
-        // 名前
-        ///////////////////////////////////////////////////
+    name: data.name,
 
-        name: data.name,
+    lat: data.lat,
+    lng: data.lng,
 
-        ///////////////////////////////////////////////////
-        // 座標
-        ///////////////////////////////////////////////////
-
-        lat: data.lat,
-        lng: data.lng,
-
-        ///////////////////////////////////////////////////
-        // 向き
-        ///////////////////////////////////////////////////
-
-        heading: data.heading
-    };
+    heading: data.heading
+};
 
     ///////////////////////////////////////////////////////
     // 全員へ送信
@@ -202,16 +192,12 @@ socket.on("leaveRoom",()=>{
 
     if(rooms[roomId]){
 
-        delete rooms[roomId].players[socket.id];
+        delete rooms[roomId].players[socket.userId];
 
-        ///////////////////////////////////////////////////
-        // 他プレイヤーへ通知
-        ///////////////////////////////////////////////////
-
-        io.to(roomId).emit(
-            "removePlayer",
-            socket.id
-        );
+io.to(roomId).emit(
+    "removePlayer",
+    socket.userId
+);
     }
 
     ///////////////////////////////////////////////////////
@@ -295,34 +281,39 @@ server.listen(3000,()=>{
 
 socket.on("disconnect",()=>{
 
-    ///////////////////////////////////////////////////////////
-    // ルーム未参加
-    ///////////////////////////////////////////////////////////
-
     if(!socket.roomId)return;
 
     const roomId = socket.roomId;
 
-    ///////////////////////////////////////////////////////////
-    // プレイヤー削除
-    ///////////////////////////////////////////////////////////
-
     if(rooms[roomId]){
 
-        delete rooms[roomId].players[socket.id];
+        ///////////////////////////////////////////////////
+        // プレイヤー削除
+        ///////////////////////////////////////////////////
 
-        ///////////////////////////////////////////////////////
-        // 他ユーザーへ通知
-        ///////////////////////////////////////////////////////
+        delete rooms[roomId].players[socket.userId];
+
+        ///////////////////////////////////////////////////
+        // 他プレイヤーへ通知
+        ///////////////////////////////////////////////////
 
         io.to(roomId).emit(
             "removePlayer",
-            socket.id
+            socket.userId
         );
+
+        ///////////////////////////////////////////////////
+        // 空ルーム削除
+        ///////////////////////////////////////////////////
+
+        if(
+            Object.keys(
+                rooms[roomId].players
+            ).length === 0
+        ){
+            delete rooms[roomId];
+        }
     }
 
-    console.log(
-        "切断:",
-        socket.id
-    );
+    console.log("切断:",socket.userId);
 });
