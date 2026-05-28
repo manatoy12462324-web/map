@@ -704,6 +704,94 @@ let lastPositionSendTime=0;
 const socket =
 io("https://map-3-rcwb.onrender.com");
 
+socket.on("roomJoined",()=>{
+
+        joinedRoom = true;
+
+        document.getElementById(
+            'roomStatus'
+        ).innerText =
+        `参加中: ${currentRoomId}`;
+
+        speak('ルームに参加しました');
+
+        console.log("作成成功");
+    });
+
+    socket.on("roomCreated",()=>{
+
+        joinedRoom=true;
+
+        document.getElementById(
+            'roomStatus'
+        ).innerText =
+        `参加中: ${currentRoomId}`;
+
+        speak('ルームを作成しました');
+
+        console.log("作成成功");
+    });
+
+
+    socket.on("roomError",(msg)=>{
+
+        alert(msg);
+
+        joinedRoom = false;
+
+        console.log("エラー:",msg);
+    });
+
+    ///////////////////////////////////////////////////////////////
+// ルーム退出成功
+///////////////////////////////////////////////////////////////
+
+socket.on("roomLeft",()=>{
+
+    ///////////////////////////////////////////////////////////
+    // 状態初期化
+    ///////////////////////////////////////////////////////////
+
+    joinedRoom = false;
+
+    currentRoomId = null;
+
+    currentRoomPassword = null;
+
+    ///////////////////////////////////////////////////////////
+    // マーカー削除
+    ///////////////////////////////////////////////////////////
+
+    for(const id in friendMarkers){
+
+        friendMarkers[id].remove();
+    }
+
+    ///////////////////////////////////////////////////////////
+    // 初期化
+    ///////////////////////////////////////////////////////////
+
+    Object.keys(friendMarkers)
+    .forEach(key=>delete friendMarkers[key]);
+
+    ///////////////////////////////////////////////////////////
+    // UI
+    ///////////////////////////////////////////////////////////
+
+    document.getElementById(
+        'roomStatus'
+    ).innerText='未接続';
+
+    ///////////////////////////////////////////////////////////
+    // 音声
+    ///////////////////////////////////////////////////////////
+
+    speak('ルームを退出しました');
+
+    console.log("退出成功");
+});
+
+    
 ///////////////////////////////////////////////////////////////
 // ルーム状態
 ///////////////////////////////////////////////////////////////
@@ -752,15 +840,15 @@ document.getElementById(
     currentRoomPassword =
     password;
 
-    joinedRoom=true;
+    socket.emit(
+        'joinRoom',
+        {
+            roomId,
+            password
+        }
+    );
 
-    ///////////////////////////////////////////////////////////
-    // UI閉じる
-    ///////////////////////////////////////////////////////////
-
-    document.getElementById(
-        'roomUI'
-    ).style.display='none';
+    
 
     ///////////////////////////////////////////////////////////
     // 状態表示
@@ -794,18 +882,21 @@ document.getElementById(
     ).value.trim();
 
     if(!roomId){
-
         alert('ルームID入力');
-
         return;
     }
 
     if(!password){
-
         alert('パスワード入力');
-
         return;
     }
+
+    ///////////////////////////////////////////////////////////
+    // 一時保存
+    ///////////////////////////////////////////////////////////
+
+    currentRoomId = roomId;
+    currentRoomPassword = password;
 
     ///////////////////////////////////////////////////////////
     // サーバへ作成要求
@@ -818,24 +909,6 @@ document.getElementById(
             password
         }
     );
-
-    currentRoomId=
-    roomId;
-
-    currentRoomPassword=
-    password;
-
-    joinedRoom=true;
-
-    ///////////////////////////////////////////////////////////
-    // UI閉じる
-    ///////////////////////////////////////////////////////////
-
-    document.getElementById(
-        'roomUI'
-    ).style.display='none';
-
-    speak('ルームを作成しました');
 };
 
 ///////////////////////////////////////////////////////////////
@@ -1698,14 +1771,7 @@ if(gameMode){
     drawFogMask();
 }
 
-/////////////////////////////////////////////////////////////
-// ゲームマスク再描画
-/////////////////////////////////////////////////////////////
 
-if(gameMode){
-
-    drawFogMask();
-}
 
 
 }
@@ -2410,18 +2476,6 @@ map.on('load',()=>{
     drawFogMask();
 
 
-    /////////////////////////////////////////////////////////////
-    // 地図移動時再描画
-    /////////////////////////////////////////////////////////////
-
-    map.on('move',()=>{
-
-        if(gameMode){
-
-            drawFogMask();
-        }
-    });
-
 
 ///////////////////////////////////////////////////////////////
 // ボタン
@@ -2601,37 +2655,21 @@ document.getElementById(
 'leaveRoomButton'
 ).onclick=()=>{
 
-    currentRoomId=null;
-
-    currentRoomPassword=null;
-
-    joinedRoom=false;
-
     ///////////////////////////////////////////////////////////
-    // マーカー削除
+    // 未参加
     ///////////////////////////////////////////////////////////
 
-    for(const id in friendMarkers){
+    if(!joinedRoom){
 
-        friendMarkers[id].remove();
+        alert('ルーム未参加');
+        return;
     }
 
     ///////////////////////////////////////////////////////////
-    // 初期化
+    // サーバへ退出通知
     ///////////////////////////////////////////////////////////
 
-    Object.keys(friendMarkers)
-    .forEach(key=>delete friendMarkers[key]);
-
-    ///////////////////////////////////////////////////////////
-    // 表示
-    ///////////////////////////////////////////////////////////
-
-    document.getElementById(
-        'roomStatus'
-    ).innerText='未接続';
-
-    speak('ルームを退出しました');
+    socket.emit("leaveRoom");
 };
 
 ///////////////////////////////////////////////////////////////
