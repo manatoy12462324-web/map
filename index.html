@@ -704,6 +704,22 @@ let lastPositionSendTime=0;
 const socket =
 io("https://map-3-rcwb.onrender.com");
 
+///////////////////////////////////////////////////////////////
+// 自分のSocketID
+///////////////////////////////////////////////////////////////
+
+let mySocketId = null;
+
+socket.on("connect",()=>{
+
+    mySocketId = socket.id;
+
+    console.log(
+        "接続ID:",
+        mySocketId
+    );
+});
+
 socket.on("roomJoined",()=>{
 
         joinedRoom = true;
@@ -860,7 +876,6 @@ document.getElementById(
 
     `参加中: ${roomId}`;
 
-    speak('ルームに参加しました');
 };
 
 ///////////////////////////////////////////////////////////////
@@ -1633,16 +1648,15 @@ if(
 
     socket.emit("updatePosition",{
 
-        roomId: currentRoomId,
-        password: currentRoomPassword,
+    roomId: currentRoomId,
+    password: currentRoomPassword,
 
-        id: myUserId,
-        name: "プレイヤー",
+    name: "プレイヤー",
 
-        lat,
-        lng,
-        heading
-    });
+    lat,
+    lng,
+    heading
+});
 
     lastPositionSendTime = now;
 }
@@ -1893,10 +1907,9 @@ socket.on("players",(players)=>{
         // 自分除外
         ///////////////////////////////////////////////////////
 
-        if(player.id===myUserId){
+        if(player.id===mySocketId){
             return;
         }
-
         ///////////////////////////////////////////////////////
         // まだ存在しない
         ///////////////////////////////////////////////////////
@@ -1958,6 +1971,37 @@ socket.on("players",(players)=>{
             ]);
         }
     });
+});
+
+///////////////////////////////////////////////////////////////
+// プレイヤー削除
+///////////////////////////////////////////////////////////////
+
+socket.on("removePlayer",(playerId)=>{
+
+    ///////////////////////////////////////////////////////////
+    // マーカー存在
+    ///////////////////////////////////////////////////////////
+
+    if(friendMarkers[playerId]){
+
+        ///////////////////////////////////////////////////////
+        // 地図から削除
+        ///////////////////////////////////////////////////////
+
+        friendMarkers[playerId].remove();
+
+        ///////////////////////////////////////////////////////
+        // 配列削除
+        ///////////////////////////////////////////////////////
+
+        delete friendMarkers[playerId];
+
+        console.log(
+            "プレイヤー削除:",
+            playerId
+        );
+    }
 });
 
 ///////////////////////////////////////////////////////////////
