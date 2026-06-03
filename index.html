@@ -2849,9 +2849,18 @@ window.addEventListener(
     'beforeunload',
     ()=>{
 
+        if(joinedRoom){
+
+            socket.emit(
+                "leaveRoom"
+            );
+        }
+
         localStorage.setItem(
             STORAGE_KEY,
-            JSON.stringify(exploredTiles)
+            JSON.stringify(
+                exploredTiles
+            )
         );
     }
 );
