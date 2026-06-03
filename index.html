@@ -727,31 +727,35 @@ socket.on("connect",()=>{
 
 socket.on("roomJoined",()=>{
 
-        joinedRoom = true;
+    joinedRoom = true;
 
-        document.getElementById(
-            'roomStatus'
-        ).innerText =
-        `参加中: ${currentRoomId}`;
+    document.getElementById(
+        'roomStatus'
+    ).innerText =
+    `参加中: ${currentRoomId}`;
 
-        speak('ルームに参加しました');
+    sendCurrentPosition();
 
-        console.log("作成成功");
+    speak('ルームに参加しました');
+
+    console.log("参加成功");
     });
 
     socket.on("roomCreated",()=>{
 
-        joinedRoom=true;
+    joinedRoom = true;
 
-        document.getElementById(
-            'roomStatus'
-        ).innerText =
-        `参加中: ${currentRoomId}`;
+    document.getElementById(
+        'roomStatus'
+    ).innerText =
+    `参加中: ${currentRoomId}`;
 
-        speak('ルームを作成しました');
+    sendCurrentPosition();
 
-        console.log("作成成功");
-    });
+    speak('ルームを作成しました');
+
+    console.log("作成成功");
+});
 
 
     socket.on("roomError",(msg)=>{
@@ -965,6 +969,24 @@ const myUserId =
 Math.random()
 .toString(36)
 .substr(2,9);
+
+function sendCurrentPosition(){
+
+    if(!currentPosition) return;
+
+    socket.emit("updatePosition",{
+
+        roomId: currentRoomId,
+        password: currentRoomPassword,
+        userId: myUserId,
+
+        name: playerName,
+
+        lat: currentPosition[1],
+        lng: currentPosition[0],
+        heading: 0
+    });
+}
 
 
 
