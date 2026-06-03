@@ -199,6 +199,19 @@ socket.on("leaveRoom",()=>{
         socket.id
     );
 
+    if(
+    Object.keys(
+        rooms[roomId].players
+    ).length === 0
+){
+    delete rooms[roomId];
+
+    console.log(
+        "空ルーム削除:",
+        roomId
+    );
+}
+
 
     }
 
@@ -232,43 +245,33 @@ socket.on("leaveRoom",()=>{
 
     socket.on("disconnect",()=>{
 
-        const roomId = socket.roomId;
+    const roomId = socket.roomId;
 
-        if(roomId && rooms[roomId]){
+    if(roomId && rooms[roomId]){
 
-            //////////////////////////////////////////////////
-            // プレイヤー削除
-            //////////////////////////////////////////////////
+        delete rooms[roomId].players[socket.id];
 
-            for(const id in rooms[roomId].players){
+        io.to(roomId).emit(
+            "removePlayer",
+            socket.id
+        );
 
-                if(
-                    rooms[roomId]
-                    .players[id]
-                    .socketId
-                    ===
-                    socket.id
-                ){
-                    delete rooms[roomId]
-                    .players[id];
-                }
-            }
+        if(
+            Object.keys(
+                rooms[roomId].players
+            ).length === 0
+        ){
+            delete rooms[roomId];
 
-            //////////////////////////////////////////////////
-            // 空なら削除
-            //////////////////////////////////////////////////
-
-            if(
-                Object.keys(
-                    rooms[roomId].players
-                ).length===0
-            ){
-                delete rooms[roomId];
-            }
+            console.log(
+                "空ルーム削除:",
+                roomId
+            );
         }
+    }
 
-        console.log("切断:",socket.id);
-    });
+    console.log("切断:",socket.id);
+});
 
 });
 
