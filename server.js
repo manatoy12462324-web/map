@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
+const fetch = global.fetch;
 const app = express();
 const server = http.createServer(app);
 
@@ -16,6 +17,26 @@ const io = new Server(server,{
 //////////////////////////////////////////////////////
 
 const rooms = {};
+const gpsHistory = {};
+
+async function mapMatch(points){
+
+    const response = await fetch(
+        "http://localhost:8002/trace_route",
+        {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({
+                shape: points,
+                costing:"auto"
+            })
+        }
+    );
+
+    return await response.json();
+}
 
 //////////////////////////////////////////////////////
 // 接続
@@ -130,7 +151,7 @@ io.on("connection",(socket)=>{
     // 位置更新
     //////////////////////////////////////////////////
 
-    socket.on("updatePosition",(data)=>{
+    socket.on("updatePosition",async (data)=>{
 
     const roomId = data.roomId;
 
@@ -139,6 +160,47 @@ io.on("connection",(socket)=>{
     ///////////////////////////////////////////////////////
 
     if(!rooms[roomId])return;
+
+    if(!gpsHistory[socket.id]){
+        gpsHistory[socket.id] = [];
+    }
+
+    gpsHistory[socket.id].push({
+        lat:data.lat,
+        lon:data.lng
+    });
+
+    if(gpsHistory[socket.id].length > 20){
+        gpsHistory[socket.id].shift();
+    }
+
+    let snappedLat = data.lat;
+    let snappedLng = data.lng;
+
+    try{
+
+        if(gpsHistory[socket.id].length >= 3){
+
+            const result =
+                await mapMatch(
+                    gpsHistory[socket.id]
+                );
+
+            console.log(
+                "Valhalla応答",
+                result
+            );
+
+        // ここは後で調整
+        }
+
+    }catch(err){
+
+        console.error(
+        "Valhallaエラー",
+        err
+    );
+}
 
     ///////////////////////////////////////////////////////
     // プレイヤー保存
@@ -152,8 +214,8 @@ io.on("connection",(socket)=>{
 
         name: data.name,
 
-        lat: data.lat,
-        lng: data.lng,
+        lat: snappedLat,
+        lng: snappedLng,
 
         heading: data.heading
     };
